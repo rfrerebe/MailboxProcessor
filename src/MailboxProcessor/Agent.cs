@@ -90,7 +90,7 @@ namespace MailboxProcessor
                 {
                     var msg = msgf(new ReplyChannel<TReply>(reply =>
                     {
-                        tcs.TrySetResult(reply);
+                        ThreadPool.QueueUserWorkItem((_) => tcs.TrySetResult(reply));
                     }));
 
                     await _mailbox.Post(msg);

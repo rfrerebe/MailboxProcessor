@@ -23,7 +23,7 @@ namespace ConsoleApp1
                     {
                         string line = string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25));
                         var result = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
-
+                   
                         for (int j = 0; j < 10; ++j)
                         {
                             string line2 = $"{result}) {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
@@ -106,6 +106,8 @@ namespace ConsoleApp1
             var agent = new Agent<Message>(async inbox =>
             {
                 int n = 0;
+
+               // int threadId = Thread.CurrentThread.ManagedThreadId;
 
                 using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, 4 * 1024, false);
                 using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, 4096, true);
