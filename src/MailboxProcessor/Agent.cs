@@ -52,17 +52,16 @@ namespace MailboxProcessor
             {
                 try
                 {
-                    await _body(this);
+                   await _body(this);
                 }
                 catch (Exception exception)
                 {
                     // var err = ExceptionDispatchInfo.Capture(exception);
                     _errorEvent.OnNext(exception);
-                    throw;
                 }
             }
 
-            Task.Run(StartAsync, this.CancellationToken);
+            Task.Factory.StartNew(StartAsync, this.CancellationToken, TaskCreationOptions.None, TaskScheduler.Default);
         }
 
         public Task Stop ()
@@ -78,7 +77,8 @@ namespace MailboxProcessor
         public async Task<TReply> PostAndReply<TReply>(Func<IReplyChannel<TReply>, TMsg> msgf, int? timeout = null)
         {
             timeout = timeout ?? DefaultTimeout;
-            var tcs = new TaskCompletionSource<TReply>();
+            var tcs = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+
             using (var cts = CancellationTokenSource.CreateLinkedTokenSource(this.CancellationToken))
             {
                 if (timeout.Value != Timeout.Infinite)
@@ -90,7 +90,7 @@ namespace MailboxProcessor
                 {
                     var msg = msgf(new ReplyChannel<TReply>(reply =>
                     {
-                        ThreadPool.QueueUserWorkItem((_) => tcs.TrySetResult(reply));
+                        tcs.TrySetResult(reply);
                     }));
 
                     await _mailbox.Post(msg);

@@ -50,15 +50,15 @@ namespace MailboxProcessor
 
         public Task Completion => _reader.Completion;
 
-        internal Task Stop()
+        internal async Task Stop()
         {
-            Task.Run(() =>
+            await Task.Run(() =>
             {
                 _writer.TryComplete();
                 _cts.Cancel();
             });
 
-            return _reader.Completion;
+            await _reader.Completion;
         }
 
         internal ValueTask Post(TMsg msg)

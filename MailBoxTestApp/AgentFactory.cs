@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MailBoxTestApp
 {
@@ -14,12 +15,11 @@ namespace MailBoxTestApp
             {
                 int n = 0;
 
-                // int threadId = Thread.CurrentThread.ManagedThreadId;
-
                 using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, 4 * 1024, false);
                 using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, 4096, true);
-
-                Console.WriteLine("Starting MailboxProcessor");
+                
+                int threadId = Thread.CurrentThread.ManagedThreadId;
+                Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
 
                 while (!inbox.CancellationToken.IsCancellationRequested)
                 {
@@ -62,7 +62,7 @@ namespace MailBoxTestApp
 
                 streamWriter.Flush();
 
-                Console.WriteLine("Exiting MailboxProcessor");
+                Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
             }, token, capacity);
 
             agent.Start();

@@ -16,13 +16,15 @@ namespace MailBoxTestApp
 
             async Task RunAgent(Agent<Message> agent1, Agent<Message> agent2, Agent<Message> agent3, Agent<Message> agent4)
             {
+                int threadId = Thread.CurrentThread.ManagedThreadId;
+                Console.WriteLine($"Agent Work Thread {threadId}");
                 try
                 {
                     for (int i = 0; i < 50000; ++i)
                     {
                         string line = string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25));
                         var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
-                   
+
                         for (int j = 0; j < 5; ++j)
                         {
                             string line2 = $"{lineNumber}) {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
@@ -34,6 +36,8 @@ namespace MailBoxTestApp
                             string line3 = $"{lineNumber}) {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                             await agent3.Post(new AddLineMessage(line3));
                         }
+                        
+                        // Console.WriteLine($"Agent Work Thread {Thread.CurrentThread.ManagedThreadId}:{lineNumber}");
                     }
                 }
                 catch (OperationCanceledException)
