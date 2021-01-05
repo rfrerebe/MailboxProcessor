@@ -1,6 +1,7 @@
 namespace MailboxProcessor
 {
     using System;
+    using System.Runtime.ExceptionServices;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -99,46 +100,64 @@ namespace MailboxProcessor
             }
         }
 
+        private static void HandleException(bool isRunning, CancellationToken token, ExceptionDispatchInfo ex)
+        {
+            if (ex.SourceException is AggregateException aggex)
+            {
+                Exception firstError = null;
+                aggex.Flatten().Handle((err) =>
+                {
+                    if (!(err is OperationCanceledException))
+                    {
+                        firstError = firstError ?? err;
+                        return false;
+                    }
+                    return true;
+                });
+
+                // Channel was closed
+                if (!isRunning)
+                {
+                    throw new OperationCanceledException(token);
+                }
+                else
+                {
+                    if (firstError != null)
+                    {
+                        ex.Throw();
+                    }
+                }
+            }
+            else if (ex.SourceException is OperationCanceledException oppex)
+            {
+                throw oppex;
+            }
+            else
+            {
+                // Channel was closed
+                if (!isRunning)
+                {
+                    throw new OperationCanceledException(token);
+                }
+                else
+                {
+                    ex.Throw();
+                }
+            }
+            
+            // should never happen here (but in any case)
+            ex.Throw();
+        }
+
         public async Task Post(TMsg message)
         {
             try
             {
                 await _mailbox.Post(message);
             }
-            catch (AggregateException ex)
+            catch (Exception ex)
             {
-                Exception firstError = null;
-                ex.Flatten().Handle((err) =>
-                {
-                    firstError = firstError ?? err;
-                    return true;
-                });
-
-                // Channel was closed
-                if (!this.IsRunning)
-                {
-                    throw new OperationCanceledException(this.CancellationToken);
-                }
-                else
-                {
-                    throw firstError;
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                // Channel was closed
-                if (!this.IsRunning)
-                {
-                    throw new OperationCanceledException(this.CancellationToken);
-                }
-                else
-                {
-                    throw;
-                }
+                HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
             }
         }
 
@@ -161,7 +180,18 @@ namespace MailboxProcessor
                         tcs.TrySetResult(reply);
                     }));
 
-                    await this.Post(msg);
+                    try
+                    {
+                        await this.Post(msg);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        tcs.TrySetCanceled(this.CancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.TrySetException(ex);
+                    }
 
                     return await tcs.Task;
                 }
@@ -174,41 +204,12 @@ namespace MailboxProcessor
             {
                 return await _mailbox.Receive();
             }
-            catch (AggregateException ex)
+            catch (Exception ex)
             {
-                Exception firstError = null;
-                ex.Flatten().Handle((err) =>
-                {
-                    firstError = firstError ?? err;
-                    return true;
-                });
-
-                // Channel was closed
-                if (!this.IsRunning)
-                {
-                    throw new OperationCanceledException(this.CancellationToken);
-                }
-                else
-                {
-                    throw firstError;
-                }
+                HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                // Channel was closed
-                if (!this.IsRunning)
-                {
-                    throw new OperationCanceledException(this.CancellationToken);
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            // should never happen here
+            return default(TMsg);
         }
 
         public bool TryReceive(out TMsg msg)
