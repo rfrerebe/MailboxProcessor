@@ -88,7 +88,7 @@ namespace MailboxProcessor
             {
                 try
                 {
-                    var savedTask = _agentTask;
+                    var savedTask = _agentTask ?? Task.CompletedTask;
                     _mailbox.Stop();
                     await savedTask;
                 }
