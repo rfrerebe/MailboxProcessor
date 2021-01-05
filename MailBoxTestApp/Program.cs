@@ -14,21 +14,23 @@ namespace MailBoxTestApp
             CancellationTokenSource cts = new CancellationTokenSource();
             // cts.CancelAfter(100);
 
-            async Task RunAgent(Agent<Message> agent1, Agent<Message> agent2, Agent<Message> agent3, Agent<Message> agent4)
+            async Task RunJob(Agent<Message> agent1, Agent<Message> agent2, Agent<Message> agent3, Agent<Message> agent4)
             {
-                int threadId = Thread.CurrentThread.ManagedThreadId;
-                Console.WriteLine($"Agent Work Thread {threadId}");
+                // Console.WriteLine($"Agent Work Thread { Thread.CurrentThread.ManagedThreadId}");
                 try
                 {
                     for (int i = 0; i < 25000; ++i)
                     {
-                        string line = $"{i}) Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                        string line = $"Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                         var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
 
                         for (int j = 0; j < 5; ++j)
                         {
-                            string line2 = $"{lineNumber}) Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            string line2 = $"Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            // wait for reply
                             var reply = await agent2.PostAndReply<AddMultyLineMessageReply>(channel => new AddMultyLineMessage(channel, line: line2));
+                            
+                            // send all lines in reply to agent4
                             foreach(var line4 in reply.Lines)
                             {
                                 await agent4.Post(new AddLineMessage(line4));
@@ -37,7 +39,7 @@ namespace MailBoxTestApp
 
                         for (int j = 0; j < 5; ++j)
                         {
-                            string line3 = $"{lineNumber}) Line3 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            string line3 = $"Line3 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                             await agent3.Post(new AddLineMessage(line3));
                         }
                         
@@ -58,7 +60,7 @@ namespace MailBoxTestApp
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
 
-                await RunAgent(agent1,agent2, agent3, agent4);
+                await RunJob(agent1,agent2, agent3, agent4);
 
                 sw.Stop();
 

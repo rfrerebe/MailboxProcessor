@@ -57,61 +57,67 @@ namespace MailBoxTestApp
         private static readonly string[] allAgentNames = new string[] { "testMailbox1", "testMailbox2", "testMailbox3", "testMailbox4" };
         */
 
+        private static async Task Process(Func<bool> isRunning, Func<Task<Message>> receive, StreamWriter streamWriter)
+        {
+            int n = 0;
+
+            while (isRunning())
+            {
+                var msg = await receive();
+
+                if (msg is AddLineMessage addLineMessage)
+                {
+                    streamWriter.WriteLine($"{n+1}) {addLineMessage.Line}");
+                    ++n;
+                }
+                else if (msg is Reset)
+                {
+                    n = 0;
+                }
+                else if (msg is AddLineAndReplyMessage addLineandReplyMessage)
+                {
+                    streamWriter.WriteLine($"{n+1}) {addLineandReplyMessage.Line}");
+                    ++n;
+                    var chan = addLineandReplyMessage.Channel;
+                    chan.Reply(n);
+                }
+                else if (msg is AddMultyLineMessage addMultyLineMessage)
+                {
+                    streamWriter.WriteLine(addMultyLineMessage.Line);
+                    ++n;
+                    List<string> list = new List<string>();
+                    for (int k = 0; k < 10; ++k)
+                    {
+                        string line4 = $"Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                        list.Add(line4);
+                    }
+                    var chan = addMultyLineMessage.Channel;
+                    chan.Reply(new AddMultyLineMessageReply(list.ToArray()));
+                }
+            }
+        }
+
         public static Agent<Message> GetAgent(string filePath, CancellationToken? token = null, int? capacity = null)
         {
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
 
             var agent = new Agent<Message>(async inbox =>
             {
-                int n = 0;
-
                 using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, 4 * 1024, false);
                 using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, 4096, true);
                 
                 int threadId = Thread.CurrentThread.ManagedThreadId;
                 Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
 
-                while (inbox.IsRunning)
+                try
                 {
-                    try
-                    {
-                        var msg = await inbox.Receive();
-
-                        if (msg is AddLineMessage addLineMessage)
-                        {
-                            streamWriter.WriteLine(addLineMessage.Line);
-                            ++n;
-                        }
-                        else if (msg is Reset)
-                        {
-                            n = 0;
-                        }
-                        else if (msg is AddLineAndReplyMessage addLineandReplyMessage)
-                        {
-                            streamWriter.WriteLine(addLineandReplyMessage.Line);
-                            ++n;
-                            var chan = addLineandReplyMessage.Channel;
-                            chan.Reply(n);
-                        }
-                        else if (msg is AddMultyLineMessage addMultyLineMessage)
-                        {
-                            streamWriter.WriteLine(addMultyLineMessage.Line);
-                            ++n;
-                            List<string> list = new List<string>();
-                            for (int k = 0; k < 10; ++k)
-                            {
-                                string line4 = $"{n}-{k}) Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                                list.Add(line4);
-                            }
-                            var chan = addMultyLineMessage.Channel;
-                            chan.Reply(new AddMultyLineMessageReply(list.ToArray()));
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // NOOP
-                    }
+                    await Process(()=> inbox.IsRunning, ()=> inbox.Receive(), streamWriter);
                 }
+                catch (OperationCanceledException)
+                {
+                    // NOOP
+                }
+
 
                 streamWriter.Flush();
 
