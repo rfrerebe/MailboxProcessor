@@ -101,7 +101,7 @@ namespace MailBoxTestApp
                 }
                 else if (msg is AddMultyLineMessage addMultyLineMessage)
                 {
-                    streamWriter.WriteLine(addMultyLineMessage.Line);
+                    streamWriter.WriteLine($"{n+1}) {addMultyLineMessage.Line}");
                     ++n;
                     List<string> list = new List<string>();
                     for (int k = 0; k < 10; ++k)
