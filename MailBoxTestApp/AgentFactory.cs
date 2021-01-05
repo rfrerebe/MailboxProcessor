@@ -1,6 +1,7 @@
 ﻿using MailboxProcessor;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace MailBoxTestApp
 {
-    public class Agents<Message>
+    public class AgentDictionary<Message>
     {
         private ConcurrentDictionary<string, Lazy<TaskCompletionSource<Agent<Message>>>> _agents = new ConcurrentDictionary<string, Lazy<TaskCompletionSource<Agent<Message>>>>();
         private TaskCompletionSource<Agent<Message>> _GetAgent(string name)
@@ -32,16 +33,14 @@ namespace MailBoxTestApp
             return false;
         }
 
-        public Task<Agent<Message>> GetAgent(string name)
+        public async Task<Agent<Message>> GetAgent(string name)
         {
             if (_agents.TryGetValue(name, out var lazyVal))
             {
-                return lazyVal.Value.Task;
+                return await lazyVal.Value.Task;
             }
 
-            CancellationTokenSource cts = new CancellationTokenSource();
-            cts.Cancel();
-            return Task.FromCanceled<Agent<Message>>(cts.Token);
+            throw new Exception($"Agent {name} is not found in the dictionary");
         }
 
         public void Clear()
@@ -52,12 +51,15 @@ namespace MailBoxTestApp
 
     public static class AgentFactory
     {
-        private static Agents<Message> _agents = new Agents<Message>();
+        /*
+        private static AgentDictionary<Message> _agents = new AgentDictionary<Message>();
+
+        private static readonly string[] allAgentNames = new string[] { "testMailbox1", "testMailbox2", "testMailbox3", "testMailbox4" };
+        */
 
         public static Agent<Message> GetAgent(string filePath, CancellationToken? token = null, int? capacity = null)
         {
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
-            string[] allAgentNames = new string[] { "testMailbox1", "testMailbox2", "testMailbox3", "testMailbox4" };
 
             var agent = new Agent<Message>(async inbox =>
             {
@@ -95,25 +97,14 @@ namespace MailBoxTestApp
                         {
                             streamWriter.WriteLine(addMultyLineMessage.Line);
                             ++n;
-                            for (int k = 0; k < 5; ++k)
+                            List<string> list = new List<string>();
+                            for (int k = 0; k < 10; ++k)
                             {
                                 string line4 = $"{n}-{k}) Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                                
-                                var nextAgent = await _agents.GetAgent("testMailbox4");
-                                await nextAgent?.Post(new AddLineMessage(line4));
+                                list.Add(line4);
                             }
-
-
-                            int agentNum = n % 4;
-                            string randomName = allAgentNames[agentNum];
-
-                            // can not post himself in this thread (if the bounded queue - then we deadlock on waiting the post to complete)
-                            if (randomName != thisAgentName)
-                            {
-                                string line5 = $"{n}-{agentNum}) Line5 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                                var randomAgent = await _agents.GetAgent(randomName);
-                                await randomAgent?.Post(new AddLineMessage(line5));
-                            }
+                            var chan = addMultyLineMessage.Channel;
+                            chan.Reply(new AddMultyLineMessageReply(list.ToArray()));
                         }
                     }
                     catch (OperationCanceledException)
@@ -127,11 +118,9 @@ namespace MailBoxTestApp
                 Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
             }, token, capacity);
 
-            string agentName = Path.GetFileNameWithoutExtension(filePath);
-            
-            agent.AgentStarting += (s, a) => { _agents.AddAgent(agentName, agent); };
+            // agent.AgentStarting += (s, a) => { _agents.AddAgent(thisAgentName, agent); };
             agent.Start();
-            agent.AgentStopped += (s,a) => { _agents.RemoveAgent(agentName); };
+            // agent.AgentStopped += (s,a) => { _agents.RemoveAgent(thisAgentName); };
 
             return agent;
         }

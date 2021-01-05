@@ -20,7 +20,7 @@ namespace MailBoxTestApp
                 Console.WriteLine($"Agent Work Thread {threadId}");
                 try
                 {
-                    for (int i = 0; i < 50000; ++i)
+                    for (int i = 0; i < 25000; ++i)
                     {
                         string line = $"{i}) Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                         var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
@@ -28,7 +28,11 @@ namespace MailBoxTestApp
                         for (int j = 0; j < 5; ++j)
                         {
                             string line2 = $"{lineNumber}) Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            await agent2.Post(new AddMultyLineMessage(line: line2));
+                            var reply = await agent2.PostAndReply<AddMultyLineMessageReply>(channel => new AddMultyLineMessage(channel, line: line2));
+                            foreach(var line4 in reply.Lines)
+                            {
+                                await agent4.Post(new AddLineMessage(line4));
+                            }
                         }
 
                         for (int j = 0; j < 5; ++j)

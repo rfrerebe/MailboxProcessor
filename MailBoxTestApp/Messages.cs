@@ -20,14 +20,27 @@ namespace MailBoxTestApp
         public string Line { get; private set; }
     }
 
+    public class AddMultyLineMessageReply
+    {
+        public AddMultyLineMessageReply(string[] lines)
+        {
+            this.Lines = lines ?? new string[0];
+        }
+
+        public string[] Lines { get; private set; }
+    }
+
     public class AddMultyLineMessage : Message
     {
-        public AddMultyLineMessage(string line)
+        public AddMultyLineMessage(IReplyChannel<AddMultyLineMessageReply> channel, string line)
         {
+            this.Channel = channel;
             this.Line = line;
         }
 
         public string Line { get; private set; }
+
+        public IReplyChannel<AddMultyLineMessageReply> Channel { get; private set; }
     }
 
     public class AddLineAndReplyMessage : Message
