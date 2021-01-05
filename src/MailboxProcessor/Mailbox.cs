@@ -71,6 +71,13 @@ namespace MailboxProcessor
 
         internal async Task<TMsg> Receive()
         {
+            _token.ThrowIfCancellationRequested();
+
+            if (_reader.TryRead(out var msg1))
+            {
+                return msg1;
+            }
+
             bool isOk = await _reader.WaitToReadAsync(_token); //if this returns false the channel is completed
             if (isOk)
             {
@@ -80,12 +87,12 @@ namespace MailboxProcessor
                 }
                 else
                 {
-                    throw new OperationCanceledException(this.CancellationToken);
+                    throw new OperationCanceledException(_token);
                 }
             }
             else
             {
-                throw new OperationCanceledException(this.CancellationToken);
+                throw new OperationCanceledException(_token);
             }
         }
 

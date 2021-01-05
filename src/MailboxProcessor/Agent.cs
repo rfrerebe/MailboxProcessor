@@ -39,7 +39,7 @@ namespace MailboxProcessor
 
         public IObservable<Exception> Errors => _errorEvent;
 
-        public bool IsRunning => _started == 1 && !this.CancellationToken.IsCancellationRequested;
+        public bool IsRunning => !(this.CancellationToken.IsCancellationRequested || this._mailbox.Completion.IsCompleted);
 
         public int DefaultTimeout { get; set; }
 
@@ -237,11 +237,6 @@ namespace MailboxProcessor
             }
             // should never happen here
             return default(TMsg);
-        }
-
-        public bool TryReceive(out TMsg msg)
-        {
-            return _mailbox.TryReceive(out msg);
         }
 
         public void ReportError(Exception ex)
