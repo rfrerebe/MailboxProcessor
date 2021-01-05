@@ -22,22 +22,22 @@ namespace MailBoxTestApp
                 {
                     for (int i = 0; i < 50000; ++i)
                     {
-                        string line = string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25));
+                        string line = $"{i}) Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                         var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
 
                         for (int j = 0; j < 5; ++j)
                         {
-                            string line2 = $"{lineNumber}) {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            await agent2.Post(new AddMultyLineMessage(line: line2, nextAgent: agent4));
+                            string line2 = $"{lineNumber}) Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            await agent2.Post(new AddMultyLineMessage(line: line2));
                         }
 
                         for (int j = 0; j < 5; ++j)
                         {
-                            string line3 = $"{lineNumber}) {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            string line3 = $"{lineNumber}) Line3 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                             await agent3.Post(new AddLineMessage(line3));
                         }
                         
-                        // Console.WriteLine($"Agent Work Thread {Thread.CurrentThread.ManagedThreadId}:{lineNumber}");
+                        // Console.WriteLine($"Agent Work Thread {Thread.CurrentThread.ManagedThreadId}");
                     }
                 }
                 catch (OperationCanceledException)
@@ -59,6 +59,16 @@ namespace MailBoxTestApp
                 sw.Stop();
 
                 Console.WriteLine($"Job took: {sw.ElapsedMilliseconds} milliseconds");
+
+                sw.Restart();
+
+                // allows to wait till all messages processed
+                Task[] stopTasks = new Task[] { agent1.Stop(), agent2.Stop(), agent3.Stop(), agent4.Stop() };
+                await Task.WhenAll(stopTasks);
+
+                sw.Stop();
+
+                Console.WriteLine($"Stopping Job took: {sw.ElapsedMilliseconds} milliseconds");
             }
 
             await Task.Yield();

@@ -24,6 +24,10 @@ namespace MailboxProcessor
         private volatile int _started;
         private Task _agentTask;
 
+        public event EventHandler<EventArgs> AgentStarting;
+        public event EventHandler<EventArgs> AgentStopping;
+        public event EventHandler<EventArgs> AgentStopped;
+
         public Agent(Func<Agent<TMsg>, Task> body, CancellationToken? cancellationToken = null, int? capacity = null)
         {
             _body = body;
@@ -53,7 +57,8 @@ namespace MailboxProcessor
             {
                 try
                 {
-                   await _body(this);
+                    AgentStarting?.Invoke(this, EventArgs.Empty);
+                    await _body(this);
                 }
                 catch (Exception exception)
                 {
@@ -82,16 +87,38 @@ namespace MailboxProcessor
             });
         }
 
-        public async Task Stop ()
+        /// <summary>
+        /// Stops the agent
+        /// </summary>
+        /// <param name="force">If force is true then all message processing stops immediately</param>
+        /// <returns></returns>
+        public async Task Stop (bool force = false)
         {
             int oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
             if (oldStarted == 1)
             {
                 try
                 {
-                    var savedTask = _agentTask ?? Task.CompletedTask;
-                    _mailbox.Stop();
-                    await savedTask;
+                    try
+                    {
+                        AgentStarting = null;
+                        AgentStopping?.Invoke(this, EventArgs.Empty);
+                        AgentStopping = null;
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            var savedTask = _agentTask ?? Task.CompletedTask;
+                            _mailbox.Stop(force);
+                            await savedTask;
+                        }
+                        finally
+                        {
+                            AgentStopped?.Invoke(this, EventArgs.Empty);
+                            AgentStopped = null;
+                        }
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -224,7 +251,7 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            this.Stop().Wait(1000);
+            this.Stop(true).Wait(1000);
         }
     }
 }

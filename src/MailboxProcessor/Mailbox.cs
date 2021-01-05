@@ -45,15 +45,18 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            this.Stop();
+            this.Stop(true);
         }
 
         public Task Completion => _reader.Completion;
 
-        internal void Stop()
+        internal void Stop(bool force)
         {
             _writer.TryComplete();
-            _cts.Cancel();
+            if (force)
+            {
+                _cts.Cancel();
+            }
         }
 
         internal ValueTask Post(TMsg msg)
@@ -66,9 +69,24 @@ namespace MailboxProcessor
             return _reader.TryRead(out msg);
         }
 
-        internal ValueTask<TMsg> Receive()
+        internal async Task<TMsg> Receive()
         {
-            return _reader.ReadAsync(_token);
+            bool isOk = await _reader.WaitToReadAsync(_token); //if this returns false the channel is completed
+            if (isOk)
+            {
+                if (_reader.TryRead(out var msg))
+                {
+                    return msg;
+                }
+                else
+                {
+                    throw new OperationCanceledException(this.CancellationToken);
+                }
+            }
+            else
+            {
+                throw new OperationCanceledException(this.CancellationToken);
+            }
         }
 
     }

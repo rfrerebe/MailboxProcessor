@@ -22,15 +22,12 @@ namespace MailBoxTestApp
 
     public class AddMultyLineMessage : Message
     {
-        public AddMultyLineMessage(string line, Agent<Message> nextAgent)
+        public AddMultyLineMessage(string line)
         {
             this.Line = line;
-            this.NextAgent = nextAgent;
         }
 
         public string Line { get; private set; }
-
-        public Agent<Message> NextAgent { get; private set; }
     }
 
     public class AddLineAndReplyMessage : Message
