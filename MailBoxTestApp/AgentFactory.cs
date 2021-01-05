@@ -21,7 +21,7 @@ namespace MailBoxTestApp
                 int threadId = Thread.CurrentThread.ManagedThreadId;
                 Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
 
-                while (!inbox.CancellationToken.IsCancellationRequested)
+                while (inbox.IsRunning)
                 {
                     try
                     {
@@ -54,9 +54,9 @@ namespace MailBoxTestApp
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (OperationCanceledException)
                     {
-                        inbox.ReportError(ex);
+                        // NOOP
                     }
                 }
 

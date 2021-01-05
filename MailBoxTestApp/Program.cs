@@ -66,8 +66,5 @@ namespace MailBoxTestApp
             Console.WriteLine("Press Any Key to Exit ....");
             Console.ReadKey();
         }
-
-      
-       
     }
 }

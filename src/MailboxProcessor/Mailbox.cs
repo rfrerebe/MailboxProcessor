@@ -45,20 +45,15 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            this.Stop().Wait(1000);
+            this.Stop();
         }
 
         public Task Completion => _reader.Completion;
 
-        internal async Task Stop()
+        internal void Stop()
         {
-            await Task.Run(() =>
-            {
-                _writer.TryComplete();
-                _cts.Cancel();
-            });
-
-            await _reader.Completion;
+            _writer.TryComplete();
+            _cts.Cancel();
         }
 
         internal ValueTask Post(TMsg msg)

@@ -19,34 +19,34 @@ namespace MailboxProcessor
     {
         private readonly Func<Agent<TMsg>, Task> _body;
         private readonly Mailbox<TMsg> _mailbox;
-        private bool _started;
         private readonly Observable<Exception> _errorEvent;
+        private volatile int _started;
+        private Task _agentTask;
 
         public Agent(Func<Agent<TMsg>, Task> body, CancellationToken? cancellationToken = null, int? capacity = null)
         {
             _body = body;
             _mailbox = new Mailbox<TMsg>(cancellationToken, capacity);
             DefaultTimeout = Timeout.Infinite;
-            _started = false;
             _errorEvent = new Observable<Exception>();
+            _started = 0;
         }
 
         public IObservable<Exception> Errors => _errorEvent;
+
+        public bool IsRunning => _started == 1 && !this.CancellationToken.IsCancellationRequested;
 
         public int DefaultTimeout { get; set; }
 
         public CancellationToken CancellationToken => _mailbox.CancellationToken;
 
+
         public void Start()
         {
-            if (_started)
+            int oldStarted = Interlocked.CompareExchange(ref _started, 1, 0);
+
+            if (oldStarted == 1)
                 throw new InvalidOperationException("MailboxProcessor already started");
-
-            _started = true;
-
-            // Protect the execution and send errors to the event.
-            // Note that exception stack traces are lost in this design - in an extended design
-            // the event could propagate an ExceptionDispatchInfo instead of an Exception.
 
             async Task StartAsync()
             {
@@ -58,20 +58,88 @@ namespace MailboxProcessor
                 {
                     // var err = ExceptionDispatchInfo.Capture(exception);
                     _errorEvent.OnNext(exception);
+                    throw;
                 }
             }
 
-            Task.Factory.StartNew(StartAsync, this.CancellationToken, TaskCreationOptions.None, TaskScheduler.Default);
+            this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, TaskCreationOptions.None, TaskScheduler.Default).Unwrap();
+            this._agentTask.ContinueWith((antecedent) => {
+                var error = antecedent.Exception;
+                try
+                {
+                    if (error != null)
+                    {
+                        this.ReportError(error);
+                    }
+                }
+                finally
+                {
+                    // proceed anyway (error or not - clean up anyway)
+                    Interlocked.CompareExchange(ref _started, 0, 1);
+                    Interlocked.CompareExchange(ref _agentTask, null, _agentTask);
+                }
+            });
         }
 
-        public Task Stop ()
+        public async Task Stop ()
         {
-            return _mailbox.Stop();
+            int oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
+            if (oldStarted == 1)
+            {
+                try
+                {
+                    var savedTask = _agentTask;
+                    _mailbox.Stop();
+                    await savedTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    // NOOP
+                }
+            }
         }
 
-        public Task Post(TMsg message)
+        public async Task Post(TMsg message)
         {
-            return _mailbox.Post(message).AsTask();
+            try
+            {
+                await _mailbox.Post(message);
+            }
+            catch (AggregateException ex)
+            {
+                Exception firstError = null;
+                ex.Flatten().Handle((err) =>
+                {
+                    firstError = firstError ?? err;
+                    return true;
+                });
+
+                // Channel was closed
+                if (!this.IsRunning)
+                {
+                    throw new OperationCanceledException(this.CancellationToken);
+                }
+                else
+                {
+                    throw firstError;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Channel was closed
+                if (!this.IsRunning)
+                {
+                    throw new OperationCanceledException(this.CancellationToken);
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
         public async Task<TReply> PostAndReply<TReply>(Func<IReplyChannel<TReply>, TMsg> msgf, int? timeout = null)
@@ -86,23 +154,61 @@ namespace MailboxProcessor
                     cts.CancelAfter(timeout.Value);
                 }
 
-                using (cts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false))
+                using (cts.Token.Register(() => tcs.TrySetCanceled(this.CancellationToken), useSynchronizationContext: false))
                 {
                     var msg = msgf(new ReplyChannel<TReply>(reply =>
                     {
                         tcs.TrySetResult(reply);
                     }));
 
-                    await _mailbox.Post(msg);
+                    await this.Post(msg);
 
                     return await tcs.Task;
                 }
             }
         }
 
-        public Task<TMsg> Receive()
+        public async Task<TMsg> Receive()
         {
-            return _mailbox.Receive().AsTask();
+            try
+            {
+                return await _mailbox.Receive();
+            }
+            catch (AggregateException ex)
+            {
+                Exception firstError = null;
+                ex.Flatten().Handle((err) =>
+                {
+                    firstError = firstError ?? err;
+                    return true;
+                });
+
+                // Channel was closed
+                if (!this.IsRunning)
+                {
+                    throw new OperationCanceledException(this.CancellationToken);
+                }
+                else
+                {
+                    throw firstError;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Channel was closed
+                if (!this.IsRunning)
+                {
+                    throw new OperationCanceledException(this.CancellationToken);
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
         public bool TryReceive(out TMsg msg)
@@ -117,7 +223,7 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            _mailbox.Dispose();
+            this.Stop().Wait(1000);
         }
     }
 }
