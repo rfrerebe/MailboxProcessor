@@ -17,7 +17,7 @@ namespace MailBoxTestApp
         */
 
         #region Doing Real Work here
-        private static async Task RunJob(Agent<Message> agent1, Agent<Message> agent2, Agent<Message> agent3, Agent<Message> agent4)
+        private static async Task RunJob(IAgent<Message> agent1, IAgent<Message> agent2, IAgent<Message> agent3, IAgent<Message> agent4)
         {
             const int numberOfLines = 25000;
             try
@@ -41,13 +41,13 @@ namespace MailBoxTestApp
                     for (int i = 0; i < numberOfLines; ++i)
                     {
                         string line = $"Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                        var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReply(channel, line));
+                        var lineNumber = await agent1.Ask<int?>(channel => new AddLineAndReply(channel, line));
 
                         for (int j = 0; j < 5; ++j)
                         {
                             string line2 = $"Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
                             // wait for reply
-                            var reply = await agent2.PostAndReply<AddMultyLineReply>(channel => new AddMultyLine(channel, line: line2));
+                            var reply = await agent2.Ask<AddMultyLineReply>(channel => new AddMultyLine(channel, line: line2));
 
                             // send all lines in reply to agent4
                             foreach (var line4 in reply.Lines)
@@ -143,12 +143,18 @@ namespace MailBoxTestApp
         }
         #endregion
 
-        public static Agent<Message> GetFileAgent(string filePath, AgentOptions agentOptions= null)
+        public static IAgent<Message> GetFileAgent(string filePath, AgentOptions agentOptions= null)
         {
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
 
             var agent = new Agent<Message>(async inbox =>
             {
+                string workDir = Path.GetDirectoryName(filePath);
+                if (!Directory.Exists(workDir))
+                {
+                    Directory.CreateDirectory(workDir);
+                }
+
                 using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, 4 * 1024, false);
                 using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, 4096, true);
                 
@@ -177,7 +183,7 @@ namespace MailBoxTestApp
             return agent;
         }
 
-        public static Agent<Message> GetCoordinatorAgent(AgentOptions agentOptions = null)
+        public static IAgent<Message> GetCoordinatorAgent(AgentOptions agentOptions = null)
         {
             var agent = new Agent<Message>(async inbox =>
             {

@@ -16,7 +16,7 @@ namespace MailboxProcessor
         }
     }
 
-    public class Agent<TMsg> : IDisposable
+    public class Agent<TMsg> : IAgent<TMsg>, IDisposable
     {
         private readonly Func<Agent<TMsg>, Task> _body;
         private readonly Mailbox<TMsg> _mailbox;
@@ -71,7 +71,8 @@ namespace MailboxProcessor
             }
 
             this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
-            this._agentTask.ContinueWith((antecedent) => {
+            this._agentTask.ContinueWith((antecedent) =>
+            {
                 var error = antecedent.Exception;
                 try
                 {
@@ -94,7 +95,7 @@ namespace MailboxProcessor
         /// </summary>
         /// <param name="force">If force is true then all message processing stops immediately</param>
         /// <returns></returns>
-        public async Task Stop (bool force = false)
+        public async Task Stop(bool force = false)
         {
             int oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
             if (oldStarted == 1)
@@ -173,7 +174,7 @@ namespace MailboxProcessor
                     ex.Throw();
                 }
             }
-            
+
             // should never happen here (but in any case)
             ex.Throw();
         }
@@ -190,7 +191,7 @@ namespace MailboxProcessor
             }
         }
 
-        public async Task<TReply> PostAndReply<TReply>(Func<IReplyChannel<TReply>, TMsg> msgf, int? timeout = null)
+        public async Task<TReply> Ask<TReply>(Func<IReplyChannel<TReply>, TMsg> msgf, int? timeout = null)
         {
             timeout = timeout ?? DefaultTimeout;
             var tcs = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);

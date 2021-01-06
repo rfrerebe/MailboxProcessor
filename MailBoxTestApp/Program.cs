@@ -19,13 +19,13 @@ namespace MailBoxTestApp
             {
                 // ************** Start a first Job here ************************
                 string workPath = @"c:\TEMP\DIR1";
-                var jobReply = await agent.PostAndReply<StartJobReply>(channel => new StartJob(channel, workPath));
+                var jobReply = await agent.Ask<StartJobReply>(channel => new StartJob(channel, workPath));
 
                 Console.WriteLine($"Job1 took: {jobReply.JobTimeMilliseconds} milliseconds");
 
                 // ************** Start a second Job here ************************
                 workPath = @"c:\TEMP\DIR2";
-                jobReply = await agent.PostAndReply<StartJobReply>(channel => new StartJob(channel, workPath));
+                jobReply = await agent.Ask<StartJobReply>(channel => new StartJob(channel, workPath));
 
                 Console.WriteLine($"Job2 took: {jobReply.JobTimeMilliseconds} milliseconds");
 
