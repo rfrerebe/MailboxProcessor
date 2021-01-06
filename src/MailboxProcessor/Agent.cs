@@ -7,10 +7,10 @@ namespace MailboxProcessor
 
     public static class Agent
     {
-        public static Agent<T> Start<T>(Func<Agent<T>, Task> body, CancellationToken? cancellationToken = null, int? capacity = null)
+        public static Agent<T> Start<T>(Func<Agent<T>, Task> body, AgentOptions agentOptions = null)
             where T : class
         {
-            var agent = new Agent<T>(body, cancellationToken, capacity);
+            var agent = new Agent<T>(body, agentOptions);
             agent.Start();
             return agent;
         }
@@ -23,15 +23,17 @@ namespace MailboxProcessor
         private readonly Observable<Exception> _errorEvent;
         private volatile int _started;
         private Task _agentTask;
+        private readonly AgentOptions _agentOptions;
 
         public event EventHandler<EventArgs> AgentStarting;
         public event EventHandler<EventArgs> AgentStopping;
         public event EventHandler<EventArgs> AgentStopped;
 
-        public Agent(Func<Agent<TMsg>, Task> body, CancellationToken? cancellationToken = null, int? capacity = null)
+        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions agentOptions = null)
         {
+            _agentOptions = agentOptions ?? AgentOptions.Default;
             _body = body;
-            _mailbox = new Mailbox<TMsg>(cancellationToken, capacity);
+            _mailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.QueueCapacity);
             DefaultTimeout = Timeout.Infinite;
             _errorEvent = new Observable<Exception>();
             _started = 0;
@@ -68,7 +70,7 @@ namespace MailboxProcessor
                 }
             }
 
-            this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, TaskCreationOptions.None, TaskScheduler.Default).Unwrap();
+            this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
             this._agentTask.ContinueWith((antecedent) => {
                 var error = antecedent.Exception;
                 try

@@ -64,12 +64,12 @@ namespace MailBoxTestApp
                 }
             };
 
-            const int capacity = 100;
+            AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, QueueCapacity= 100 };
 
-            using (var agent1 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox1.txt", token: cts.Token, capacity: capacity))
-            using (var agent2 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox2.txt", token: cts.Token, capacity: capacity))
-            using (var agent3 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox3.txt", token: cts.Token, capacity: capacity))
-            using (var agent4 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox4.txt", token: cts.Token, capacity: capacity))
+            using (var agent1 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox1.txt", agentOptions))
+            using (var agent2 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox2.txt", agentOptions))
+            using (var agent3 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox3.txt", agentOptions))
+            using (var agent4 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox4.txt", agentOptions))
             {
                 Stopwatch sw = new Stopwatch();
                 sw.Start();

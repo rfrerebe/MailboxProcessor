@@ -115,7 +115,7 @@ namespace MailBoxTestApp
             }
         }
 
-        public static Agent<Message> GetAgent(string filePath, CancellationToken? token = null, int? capacity = null)
+        public static Agent<Message> GetAgent(string filePath, AgentOptions agentOptions= null)
         {
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -140,7 +140,7 @@ namespace MailBoxTestApp
                 streamWriter.Flush();
 
                 Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
-            }, token, capacity);
+            }, agentOptions);
 
             // agent.AgentStarting += (s, a) => { _agents.AddAgent(thisAgentName, agent); };
             agent.Start();
