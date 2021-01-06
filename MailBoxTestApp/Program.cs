@@ -1,7 +1,6 @@
 ﻿using MailboxProcessor;
+using MailBoxTestApp.Messages;
 using System;
-using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,81 +13,23 @@ namespace MailBoxTestApp
             CancellationTokenSource cts = new CancellationTokenSource();
             // cts.CancelAfter(100);
 
-            async Task RunJob(Agent<Message> agent1, Agent<Message> agent2, Agent<Message> agent3, Agent<Message> agent4)
+            AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, QueueCapacity= 10 };
+
+            using (var agent = AgentFactory.GetCoordinatorAgent(agentOptions))
             {
-                const int numberOfLines = 25000;
-                try
-                {
-                    // task #1 which uses 1 agent to post lines
-                    Func<Task> taskPart1 = async ()=>
-                    {
-                        for (int i = 0; i < numberOfLines; ++i)
-                        {
-                            for (int j = 0; j < 5; ++j)
-                            {
-                                string line3 = $"Line3 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                                await agent3.Post(new AddLineMessage(line3));
-                            }
-                        }
-                    };
+                // ************** Start a first Job here ************************
+                string workPath = @"c:\TEMP\DIR1";
+                var jobReply = await agent.PostAndReply<StartJobReply>(channel => new StartJob(channel, workPath));
 
-                    // task #2 which uses several agents to post lines and get replies
-                    Func<Task> taskPart2 = async () =>
-                    {
-                        for (int i = 0; i < numberOfLines; ++i)
-                        {
-                            string line = $"Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            var lineNumber = await agent1.PostAndReply<int?>(channel => new AddLineAndReplyMessage(channel, line));
+                Console.WriteLine($"Job1 took: {jobReply.JobTimeMilliseconds} milliseconds");
 
-                            for (int j = 0; j < 5; ++j)
-                            {
-                                string line2 = $"Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                                // wait for reply
-                                var reply = await agent2.PostAndReply<AddMultyLineMessageReply>(channel => new AddMultyLineMessage(channel, line: line2));
+                // ************** Start a second Job here ************************
+                workPath = @"c:\TEMP\DIR2";
+                jobReply = await agent.PostAndReply<StartJobReply>(channel => new StartJob(channel, workPath));
 
-                                // send all lines in reply to agent4
-                                foreach (var line4 in reply.Lines)
-                                {
-                                    await agent4.Post(new AddLineMessage(line4));
-                                }
-                            }
-                        }
-                    };
+                Console.WriteLine($"Job2 took: {jobReply.JobTimeMilliseconds} milliseconds");
 
-                    // several tasks are run in parrallel
-                    await Task.WhenAll(Task.Run(taskPart1), Task.Run(taskPart1), Task.Run(taskPart1), Task.Run(taskPart2));
-                }
-                catch (OperationCanceledException)
-                {
-                    Console.WriteLine($"Agent Work is Cancelled");
-                }
-            };
-
-            AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, QueueCapacity= 100 };
-
-            using (var agent1 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox1.txt", agentOptions))
-            using (var agent2 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox2.txt", agentOptions))
-            using (var agent3 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox3.txt", agentOptions))
-            using (var agent4 = AgentFactory.GetAgent(filePath: @"c:\TEMP\testMailbox4.txt", agentOptions))
-            {
-                Stopwatch sw = new Stopwatch();
-                sw.Start();
-
-                await RunJob(agent1,agent2, agent3, agent4);
-
-                sw.Stop();
-
-                Console.WriteLine($"Job took: {sw.ElapsedMilliseconds} milliseconds");
-
-                sw.Restart();
-
-                // allows to wait till all messages processed
-                Task[] stopTasks = new Task[] { agent1.Stop(), agent2.Stop(), agent3.Stop(), agent4.Stop() };
-                await Task.WhenAll(stopTasks);
-
-                sw.Stop();
-
-                Console.WriteLine($"Stopping Job took: {sw.ElapsedMilliseconds} milliseconds");
+                await agent.Stop();
             }
 
             await Task.Yield();

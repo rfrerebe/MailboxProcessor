@@ -1,6 +1,6 @@
 ﻿using MailboxProcessor;
 
-namespace MailBoxTestApp
+namespace MailBoxTestApp.Messages
 {
     public class Message
     {
@@ -8,6 +8,28 @@ namespace MailBoxTestApp
 
     public class Reset : Message
     {
+    }
+    public class StartJob : Message
+    {
+        public StartJob(IReplyChannel<StartJobReply> channel, string workPath)
+        {
+            this.Channel = channel;
+            this.WorkPath = workPath;
+        }
+
+        public string WorkPath { get; private set; }
+
+        public IReplyChannel<StartJobReply> Channel { get; private set; }
+    }
+
+    public class StartJobReply
+    {
+        public StartJobReply(long jobTimeMilliseconds)
+        {
+            this.JobTimeMilliseconds = jobTimeMilliseconds;
+        }
+
+        public long JobTimeMilliseconds { get; private set; }
     }
 
     public class AddLineMessage : Message
@@ -20,9 +42,9 @@ namespace MailBoxTestApp
         public string Line { get; private set; }
     }
 
-    public class AddMultyLineMessageReply
+    public class AddMultyLineReply
     {
-        public AddMultyLineMessageReply(string[] lines)
+        public AddMultyLineReply(string[] lines)
         {
             this.Lines = lines ?? new string[0];
         }
@@ -30,9 +52,9 @@ namespace MailBoxTestApp
         public string[] Lines { get; private set; }
     }
 
-    public class AddMultyLineMessage : Message
+    public class AddMultyLine : Message
     {
-        public AddMultyLineMessage(IReplyChannel<AddMultyLineMessageReply> channel, string line)
+        public AddMultyLine(IReplyChannel<AddMultyLineReply> channel, string line)
         {
             this.Channel = channel;
             this.Line = line;
@@ -40,12 +62,12 @@ namespace MailBoxTestApp
 
         public string Line { get; private set; }
 
-        public IReplyChannel<AddMultyLineMessageReply> Channel { get; private set; }
+        public IReplyChannel<AddMultyLineReply> Channel { get; private set; }
     }
 
-    public class AddLineAndReplyMessage : Message
+    public class AddLineAndReply : Message
     {
-        public AddLineAndReplyMessage(IReplyChannel<int?> channel, string line)
+        public AddLineAndReply(IReplyChannel<int?> channel, string line)
         {
             this.Channel = channel;
             this.Line = line;
