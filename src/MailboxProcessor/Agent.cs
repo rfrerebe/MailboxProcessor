@@ -86,7 +86,7 @@ namespace MailboxProcessor
                     Interlocked.CompareExchange(ref _started, 0, 1);
                     Interlocked.CompareExchange(ref _agentTask, null, _agentTask);
                 }
-            });
+            }, TaskContinuationOptions.ExecuteSynchronously);
         }
 
         /// <summary>
