@@ -1,7 +1,6 @@
 ﻿using MailboxProcessor;
 using MailBoxTestApp.Messages;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -11,70 +10,10 @@ using System.Threading.Tasks;
 
 namespace MailBoxTestApp
 {
-    public class AgentDictionary<Message>
-    {
-        private readonly string[] _agentNames;
-        private ConcurrentDictionary<string, Lazy<TaskCompletionSource<Agent<Message>>>> _agents = new ConcurrentDictionary<string, Lazy<TaskCompletionSource<Agent<Message>>>>();
-
-        public string[] AgentNames => _agentNames;
-
-        public AgentDictionary()
-            : this(new string[] { "testMailbox1", "testMailbox2", "testMailbox3", "testMailbox4" })
-        {
-
-        }
-        public AgentDictionary(string[] agentNames)
-        {
-            this._agentNames = agentNames;
-
-            foreach(var agentName in _agentNames)
-            {
-               var lazyAgentVal = _agents.GetOrAdd(agentName, (_name) => new Lazy<TaskCompletionSource<Agent<Message>>>(() => new TaskCompletionSource<Agent<Message>>(TaskCreationOptions.RunContinuationsAsynchronously), true));
-            }
-        }
-
-        private TaskCompletionSource<Agent<Message>> _GetAgent(string name)
-        {
-            if (_agents.TryGetValue(name, out var lazyVal))
-            {
-                return lazyVal.Value;
-            }
-
-            throw new Exception($"Agent {name} is not found in the dictionary");
-        }
-
-        public void AddAgent(string name, Agent<Message> agent)
-        {
-            var tcs = this._GetAgent(name);
-            tcs.TrySetResult(agent);
-        }
-        
-        public bool RemoveAgent(string name)
-        {
-            if (_agents.TryRemove(name, out var lazyVal))
-            {
-                Console.WriteLine($"Agent: {name} removed from dictionary");
-                lazyVal.Value.TrySetCanceled();
-                return true;
-            }
-            return false;
-        }
-
-        public async Task<Agent<Message>> GetAgent(string name)
-        {
-            return await this._GetAgent(name).Task;
-        }
-
-        public void Clear()
-        {
-            _agents.Keys.ToList().ForEach((name)=> this.RemoveAgent(name));
-        }
-    }
-
     public static class AgentFactory
     {
         /*
-        private static AgentDictionary<Message> _agents = new AgentDictionary<Message>();
+        private static AgentDictionary<Agent<Message>> _agents = new AgentDictionary<Agent<Message>>();
         */
 
         #region Doing Real Work here
