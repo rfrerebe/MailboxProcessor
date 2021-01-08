@@ -15,7 +15,7 @@ namespace MailBoxTestApp
 
             AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, QueueCapacity= 10 };
 
-            using (var agent = AgentFactory.GetCoordinatorAgent(agentOptions))
+            using (var agent = AgentFactory.CreateCoordinatorAgent(agentOptions))
             {
                 // ************** Start a first Job here ************************
                 string workPath = @"c:\TEMP\DIR1";

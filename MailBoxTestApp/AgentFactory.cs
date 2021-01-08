@@ -17,7 +17,7 @@ namespace MailBoxTestApp
         */
 
         #region Doing Real Work here
-        private static async Task RunJob(IAgent<Message> agent1, IAgent<Message> agent2, IAgent<Message> agent3, IAgent<Message> agent4)
+        private static async Task RunJob(IAgentWriter<Message> agent1, IAgentWriter<Message> agent2, IAgentWriter<Message> agent3, IAgentWriter<Message> agent4)
         {
             const int numberOfLines = 25000;
             try
@@ -121,10 +121,10 @@ namespace MailBoxTestApp
                     string workPath = startJob.WorkPath;
                     AgentOptions agentOptions = new AgentOptions() { CancellationToken = token, QueueCapacity = 100 };
 
-                    using (var agent1 = AgentFactory.GetFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
-                    using (var agent2 = AgentFactory.GetFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
-                    using (var agent3 = AgentFactory.GetFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), agentOptions))
-                    using (var agent4 = AgentFactory.GetFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), agentOptions))
+                    using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
+                    using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
+                    using (var agent3 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), agentOptions))
+                    using (var agent4 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), agentOptions))
                     {
                         await RunJob(agent1, agent2, agent3, agent4);
 
@@ -143,7 +143,7 @@ namespace MailBoxTestApp
         }
         #endregion
 
-        public static IAgent<Message> GetFileAgent(string filePath, AgentOptions agentOptions= null)
+        public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions agentOptions= null)
         {
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
 
@@ -183,7 +183,7 @@ namespace MailBoxTestApp
             return agent;
         }
 
-        public static IAgent<Message> GetCoordinatorAgent(AgentOptions agentOptions = null)
+        public static IAgentWriter<Message> CreateCoordinatorAgent(AgentOptions agentOptions = null)
         {
             var agent = new Agent<Message>(async inbox =>
             {

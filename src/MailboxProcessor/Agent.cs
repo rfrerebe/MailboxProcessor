@@ -43,10 +43,11 @@ namespace MailboxProcessor
 
         public bool IsRunning => !(this.CancellationToken.IsCancellationRequested || this._mailbox.Completion.IsCompleted);
 
+        public bool IsStarted => this._started == 1;
+
         public int DefaultTimeout { get; set; }
 
         public CancellationToken CancellationToken => _mailbox.CancellationToken;
-
 
         public void Start()
         {
@@ -249,7 +250,29 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            this.Stop(true).Wait(1000);
+            try
+            {
+                var oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
+                if (oldStarted == 1)
+                {
+                    AgentStopping?.Invoke(this, EventArgs.Empty);
+                }
+                _mailbox.Stop(true);
+                if (oldStarted == 1)
+                {
+                    AgentStopped?.Invoke(this, EventArgs.Empty);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // NOOP
+            }
+            finally
+            {
+                AgentStopping = null;
+                AgentStopped = null;
+                AgentStarting = null;
+            }
         }
     }
 }
