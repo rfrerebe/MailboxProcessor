@@ -155,8 +155,10 @@ namespace MailBoxTestApp
                     Directory.CreateDirectory(workDir);
                 }
 
-                using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, 4 * 1024, false);
-                using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, 4096, true);
+                const int BUFFER_SIZE = 32 * 1024;
+
+                using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, BUFFER_SIZE, false);
+                using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, BUFFER_SIZE, true);
                 
                 int threadId = Thread.CurrentThread.ManagedThreadId;
                 Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
