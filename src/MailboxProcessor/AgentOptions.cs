@@ -11,10 +11,10 @@ namespace MailboxProcessor
         {
             this.TaskScheduler = TaskScheduler.Default;
             this.TaskCreationOptions = TaskCreationOptions.None;
-            this.QueueCapacity = 100;
+            this.BoundedCapacity = 100;
         }
 
-        public int? QueueCapacity { get; set; }
+        public int? BoundedCapacity { get; set; }
 
         public CancellationToken? CancellationToken { get; set; }
 

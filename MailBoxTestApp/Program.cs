@@ -13,7 +13,7 @@ namespace MailBoxTestApp
             CancellationTokenSource cts = new CancellationTokenSource();
             // cts.CancelAfter(100);
 
-            AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, QueueCapacity= 10 };
+            AgentOptions agentOptions = new AgentOptions() { CancellationToken= cts.Token, BoundedCapacity= 10 };
 
             using (var agent = AgentFactory.CreateCoordinatorAgent(agentOptions))
             {

@@ -33,10 +33,10 @@ namespace MailboxProcessor
         {
             _agentOptions = agentOptions ?? AgentOptions.Default;
             _body = body;
-            _mailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.QueueCapacity);
-            DefaultTimeout = Timeout.Infinite;
+            _mailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity);
             _errorEvent = new Observable<Exception>();
             _started = 0;
+            DefaultTimeout = Timeout.Infinite;
         }
 
         public IObservable<Exception> Errors => _errorEvent;

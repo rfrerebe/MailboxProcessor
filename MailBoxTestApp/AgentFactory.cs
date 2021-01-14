@@ -119,7 +119,7 @@ namespace MailBoxTestApp
                     sw.Start();
 
                     string workPath = startJob.WorkPath;
-                    AgentOptions agentOptions = new AgentOptions() { CancellationToken = token, QueueCapacity = 100 };
+                    AgentOptions agentOptions = new AgentOptions() { CancellationToken = token, BoundedCapacity = 100 };
 
                     using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
                     using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
