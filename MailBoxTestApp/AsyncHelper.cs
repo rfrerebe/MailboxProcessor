@@ -83,7 +83,8 @@ namespace MailBoxTestApp
                 public bool IsCompleted { get { return task.IsCompleted; } }
 
                 public void GetResult() {
-                    // NOOP
+                    // just in case
+                    task.GetAwaiter().GetResult();
                 }
             }
         }
