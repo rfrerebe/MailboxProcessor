@@ -45,7 +45,7 @@ namespace MailBoxTestApp
         /// </example>
         public static CustomTaskAwaitable ConfigureScheduler(this Task task, TaskScheduler scheduler)
         {
-            return new CustomTaskAwaitable(scheduler);
+            return new CustomTaskAwaitable(task, scheduler);
         }
  
         public static CustomTaskAwaitable<TResult> ConfigureScheduler<TResult>(this Task<TResult> task, TaskScheduler scheduler)
@@ -57,31 +57,30 @@ namespace MailBoxTestApp
         {
             CustomTaskAwaiter awaitable;
 
-            public CustomTaskAwaitable(TaskScheduler scheduler)
+            public CustomTaskAwaitable(Task task, TaskScheduler scheduler)
             {
-                awaitable = new CustomTaskAwaiter(scheduler);
+                awaitable = new CustomTaskAwaiter(task, scheduler);
             }
 
             public CustomTaskAwaiter GetAwaiter() { return awaitable; }
 
             public readonly struct CustomTaskAwaiter : INotifyCompletion
             {
+                readonly Task task;
                 readonly TaskScheduler scheduler;
 
-                public CustomTaskAwaiter(TaskScheduler scheduler)
+                public CustomTaskAwaiter(Task task, TaskScheduler scheduler)
                 {
+                    this.task = task;
                     this.scheduler = scheduler;
                 }
 
                 public void OnCompleted(Action continuation)
                 {
-                    Task.Factory.StartNew(continuation, default(CancellationToken), TaskCreationOptions.PreferFairness, scheduler);
+                    Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                /// <summary>
-                /// Continuation is always required so it returns false to always run the continuation
-                /// </summary>
-                public bool IsCompleted { get { return false; } }
+                public bool IsCompleted { get { return task.IsCompleted; } }
 
                 public void GetResult() {
                     // NOOP
@@ -114,12 +113,12 @@ namespace MailBoxTestApp
                 public void OnCompleted(Action continuation)
                 {
                     // Action action = () => { Console.WriteLine($"before continuation .... {Thread.CurrentThread.ManagedThreadId}"); continuation(); Console.WriteLine($"after continuation .... {Thread.CurrentThread.ManagedThreadId}"); };
-                    Task.Factory.StartNew(continuation, default(CancellationToken), TaskCreationOptions.PreferFairness, scheduler);
+                    Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                public bool IsCompleted { get { return false; } }
+                public bool IsCompleted { get { return task.IsCompleted; } }
 
-                public TResult GetResult() { return task.Result; } 
+                public TResult GetResult() { return task.GetAwaiter().GetResult(); } 
             }
         }
     }
