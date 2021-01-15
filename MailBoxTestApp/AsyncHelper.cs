@@ -80,10 +80,12 @@ namespace MailBoxTestApp
                     Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                public bool IsCompleted { get { return task.IsCompleted; } }
+                /// <summary>
+                /// Returns false to always run continuation (even on already completed tasks) with configured scheduler
+                /// </summary>
+                public bool IsCompleted { get { return false; } }
 
                 public void GetResult() {
-                    // just in case
                     task.GetAwaiter().GetResult();
                 }
             }
@@ -117,7 +119,10 @@ namespace MailBoxTestApp
                     Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                public bool IsCompleted { get { return task.IsCompleted; } }
+                /// <summary>
+                /// Returns false to always run continuation (even on already completed tasks) with configured scheduler
+                /// </summary>
+                public bool IsCompleted { get { return false; } }
 
                 public TResult GetResult() { return task.GetAwaiter().GetResult(); } 
             }
