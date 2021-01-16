@@ -19,13 +19,21 @@ namespace MailBoxTestApp
             using var scheduler = new Threading.Schedulers.WorkStealingTaskScheduler();
 
             var t1 = Task.Factory.StartNew(async () => {
-                Thread.Sleep(100);
+                // Starting on theadpool thread here
                 Console.WriteLine($"Thread1: {Thread.CurrentThread.ManagedThreadId} IsPool: {Thread.CurrentThread.IsThreadPoolThread}");
-                await Task.Delay(100).ConfigureLongRunning();
-                Console.WriteLine($"Thread2: {Thread.CurrentThread.ManagedThreadId} IsPool: {Thread.CurrentThread.IsThreadPoolThread}");
                 await Task.Delay(100);
+                // Still on theadpool thread here
+                Console.WriteLine($"Thread2: {Thread.CurrentThread.ManagedThreadId} IsPool: {Thread.CurrentThread.IsThreadPoolThread}");
+
+                await Task.CompletedTask.ConfigureLongRunning();
                 Console.WriteLine($"Thread3: {Thread.CurrentThread.ManagedThreadId} IsPool: {Thread.CurrentThread.IsThreadPoolThread}");
-            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
+                // Some long running code here on dedicated thread
+                Thread.Sleep(1000);
+
+                // Return to a threadpool thread
+                await Task.Yield();
+                Console.WriteLine($"Thread4: {Thread.CurrentThread.ManagedThreadId} IsPool: {Thread.CurrentThread.IsThreadPoolThread}");
+            }, CancellationToken.None, TaskCreationOptions.DenyChildAttach, TaskScheduler.Default).Unwrap();
 
             await t1;
 
