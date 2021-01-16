@@ -43,21 +43,26 @@ namespace MailBoxTestApp
         ///   Console.WriteLine("Foo Finished");
         /// }
         /// </example>
-        public static CustomTaskAwaitable ConfigureScheduler(this Task task, TaskScheduler scheduler)
+        public static SchedulerAwaitable ConfigureScheduler(this Task task, TaskScheduler scheduler)
         {
-            return new CustomTaskAwaitable(task, scheduler);
+            return new SchedulerAwaitable(task, scheduler);
         }
  
-        public static CustomTaskAwaitable<TResult> ConfigureScheduler<TResult>(this Task<TResult> task, TaskScheduler scheduler)
+        public static SchedulerAwaitable<TResult> ConfigureScheduler<TResult>(this Task<TResult> task, TaskScheduler scheduler)
         {
-            return new CustomTaskAwaitable<TResult>(task, scheduler);
+            return new SchedulerAwaitable<TResult>(task, scheduler);
         }
 
-        public struct CustomTaskAwaitable
+        public static LongRunningAwaitable ConfigureLongRunning(this Task task)
+        {
+            return new LongRunningAwaitable(task);
+        }
+
+        public struct SchedulerAwaitable
         {
             CustomTaskAwaiter awaitable;
 
-            public CustomTaskAwaitable(Task task, TaskScheduler scheduler)
+            public SchedulerAwaitable(Task task, TaskScheduler scheduler)
             {
                 awaitable = new CustomTaskAwaiter(task, scheduler);
             }
@@ -101,11 +106,11 @@ namespace MailBoxTestApp
             }
         }
 
-        public struct CustomTaskAwaitable<T>
+        public struct SchedulerAwaitable<T>
         {
             CustomTaskAwaiter<T> awaitable;
 
-            public CustomTaskAwaitable(Task<T> task, TaskScheduler scheduler)
+            public SchedulerAwaitable(Task<T> task, TaskScheduler scheduler)
             {
                 awaitable = new CustomTaskAwaiter<T>(task, scheduler);
             }
@@ -148,6 +153,50 @@ namespace MailBoxTestApp
                 }
 
                 public TResult GetResult() { return task.GetAwaiter().GetResult(); } 
+            }
+        }
+
+        public struct LongRunningAwaitable
+        {
+            CustomTaskAwaiter awaitable;
+
+            public LongRunningAwaitable(Task task)
+            {
+                awaitable = new CustomTaskAwaiter(task);
+            }
+
+            public CustomTaskAwaiter GetAwaiter() { return awaitable; }
+
+            public readonly struct CustomTaskAwaiter : INotifyCompletion
+            {
+                readonly Task task;
+
+                public CustomTaskAwaiter(Task task)
+                {
+                    this.task = task;
+                }
+
+                public void OnCompleted(Action continuation)
+                {
+                    Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+                }
+
+                /// <summary>
+                /// Returns false to always continue on longRunning task
+                /// </summary>
+                public bool IsCompleted
+                {
+                    get
+                    {
+                        return false;
+                    }
+                }
+
+                public void GetResult()
+                {
+                    //propagates exceptions
+                    task.GetAwaiter().GetResult();
+                }
             }
         }
     }
