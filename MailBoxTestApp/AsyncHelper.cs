@@ -68,22 +68,32 @@ namespace MailBoxTestApp
             {
                 readonly Task task;
                 readonly TaskScheduler scheduler;
+                readonly TaskScheduler currentScheduler;
 
                 public CustomTaskAwaiter(Task task, TaskScheduler scheduler)
                 {
                     this.task = task;
                     this.scheduler = scheduler;
+                    this.currentScheduler = TaskScheduler.Current;
                 }
 
+                private bool IsTheSameScheduler
+                {
+                    get
+                    {
+                        return Object.Equals(this.scheduler, this.currentScheduler);
+                    }
+                }
                 public void OnCompleted(Action continuation)
                 {
                     Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                /// <summary>
-                /// Returns false to always run continuation (even on already completed tasks) with configured scheduler
-                /// </summary>
-                public bool IsCompleted { get { return false; } }
+                public bool IsCompleted { 
+                    get {
+                        return IsTheSameScheduler ? task.IsCompleted : false;
+                    } 
+                }
 
                 public void GetResult() {
                     task.GetAwaiter().GetResult();
@@ -106,11 +116,21 @@ namespace MailBoxTestApp
             {
                 readonly Task<TResult> task;
                 readonly TaskScheduler scheduler;
+                readonly TaskScheduler currentScheduler;
 
                 public CustomTaskAwaiter(Task<TResult> task, TaskScheduler scheduler)
                 {
                     this.task = task;
                     this.scheduler = scheduler;
+                    this.currentScheduler = TaskScheduler.Current;
+                }
+
+                private bool IsTheSameScheduler
+                {
+                    get
+                    {
+                        return Object.Equals(this.scheduler, this.currentScheduler);
+                    }
                 }
 
                 public void OnCompleted(Action continuation)
@@ -119,10 +139,13 @@ namespace MailBoxTestApp
                     Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.PreferFairness, scheduler);
                 }
 
-                /// <summary>
-                /// Returns false to always run continuation (even on already completed tasks) with configured scheduler
-                /// </summary>
-                public bool IsCompleted { get { return false; } }
+                public bool IsCompleted
+                {
+                    get
+                    {
+                        return IsTheSameScheduler ? task.IsCompleted : false;
+                    }
+                }
 
                 public TResult GetResult() { return task.GetAwaiter().GetResult(); } 
             }
