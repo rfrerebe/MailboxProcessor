@@ -181,14 +181,11 @@ namespace MailBoxTestApp
                     Task.Factory.StartNew(continuation, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
                 }
 
-                /// <summary>
-                /// Returns false to always continue on longRunning task
-                /// </summary>
                 public bool IsCompleted
                 {
                     get
                     {
-                        return false;
+                        return  Thread.CurrentThread.IsThreadPoolThread? false: task.IsCompleted;
                     }
                 }
 
