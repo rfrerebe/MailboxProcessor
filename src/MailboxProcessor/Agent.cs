@@ -120,7 +120,7 @@ namespace MailboxProcessor
             {
                 var scan = _agentOptions.scanFunction;
 
-                _scanTask = Task.Run(async () => {
+                _scanTask = Task.Factory.StartNew(async () => {
                     while (IsRunning)
                     {
                         try
@@ -136,7 +136,7 @@ namespace MailboxProcessor
                             HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
                         }
                     }
-                }, this.CancellationToken);
+                }, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
 
                 this._scanTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
             }
