@@ -1,8 +1,8 @@
 # MailboxProcessor
-Single Threaded MailboxProcessor written in C# using System.Threading.Channels
+Single Threaded MailboxProcessor (Mini Agent) written in C# using System.Threading.Channels
 
 
-This is a simple actor system for asynchronous message processing.
+This is a simple agent for asynchronous message processing with preserving the state.
 I needed it to parse XML files and convert a single file into a bunch of CSV files
 for loading them using Oracle SQL Loader.
 
