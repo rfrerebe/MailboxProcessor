@@ -64,11 +64,6 @@ namespace MailboxProcessor
             return _writer.WriteAsync(msg, _token);
         }
 
-        internal bool TryReceive(out TMsg msg)
-        {
-            return _reader.TryRead(out msg);
-        }
-
         internal async Task<TMsg> Receive()
         {
             _token.ThrowIfCancellationRequested();

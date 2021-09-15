@@ -16,30 +16,44 @@ namespace MailboxProcessor
         }
     }
 
+    public enum ScanResults
+    {
+        None = 0,
+        Handled = 1
+    }
+
     public class Agent<TMsg> : IAgent<TMsg>, IDisposable
     {
         private readonly Func<Agent<TMsg>, Task> _body;
         private readonly Mailbox<TMsg> _mailbox;
-        private readonly Observable<Exception> _errorEvent;
+        private readonly Observable<Exception> _errorsObservable;
         private volatile int _started;
         private Task _agentTask;
+        private Task _scanTask;
         private readonly AgentOptions _agentOptions;
+        private readonly Mailbox<TMsg> _scanMailbox;
+        private readonly Func<TMsg, Task<ScanResults>> _scan;
 
         public event EventHandler<EventArgs> AgentStarting;
         public event EventHandler<EventArgs> AgentStopping;
         public event EventHandler<EventArgs> AgentStopped;
 
-        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions agentOptions = null)
+        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions agentOptions = null, Func<TMsg, Task<ScanResults>> scan = null)
         {
             _agentOptions = agentOptions ?? AgentOptions.Default;
             _body = body;
+            _scan = scan;
+            if (scan != null)
+            {
+                _scanMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, 100);
+            }
             _mailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity);
-            _errorEvent = new Observable<Exception>();
+            _errorsObservable = new Observable<Exception>();
             _started = 0;
             DefaultTimeout = Timeout.Infinite;
         }
 
-        public IObservable<Exception> Errors => _errorEvent;
+        public IObservable<Exception> Errors => _errorsObservable;
 
         public bool IsRunning => !(this.CancellationToken.IsCancellationRequested || this._mailbox.Completion.IsCompleted);
 
@@ -56,23 +70,7 @@ namespace MailboxProcessor
             if (oldStarted == 1)
                 throw new InvalidOperationException("MailboxProcessor already started");
 
-            async Task StartAsync()
-            {
-                try
-                {
-                    AgentStarting?.Invoke(this, EventArgs.Empty);
-                    await _body(this);
-                }
-                catch (Exception exception)
-                {
-                    // var err = ExceptionDispatchInfo.Capture(exception);
-                    _errorEvent.OnNext(exception);
-                    throw;
-                }
-            }
-
-            this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
-            this._agentTask.ContinueWith((antecedent) =>
+            void onTaskError(Task antecedent)
             {
                 var error = antecedent.Exception;
                 try
@@ -84,11 +82,53 @@ namespace MailboxProcessor
                 }
                 finally
                 {
-                    // proceed anyway (error or not - clean up anyway)
+                    // Stop if it's running
                     Interlocked.CompareExchange(ref _started, 0, 1);
                     Interlocked.CompareExchange(ref _agentTask, null, _agentTask);
+                    Interlocked.CompareExchange(ref _scanTask, null, _scanTask);
                 }
-            }, TaskContinuationOptions.ExecuteSynchronously);
+            }
+
+            async Task StartAsync()
+            {
+                try
+                {
+                    AgentStarting?.Invoke(this, EventArgs.Empty);
+                    await _body(this);
+                }
+                catch (Exception exception)
+                {
+                    // var err = ExceptionDispatchInfo.Capture(exception);
+                    _errorsObservable.OnNext(exception);
+                    throw;
+                }
+            }
+
+            this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
+            this._agentTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
+
+            if (_scanMailbox != null)
+            {
+                _scanTask = Task.Run(async () => {
+                    while (IsRunning)
+                    {
+                        try
+                        {
+                            TMsg msg = await _scanMailbox.Receive();
+                            if (ScanResults.Handled != await _scan(msg))
+                            {
+                                await _mailbox.Post(msg);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
+                        }
+                    }
+                }, this.CancellationToken);
+
+                this._scanTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
+            }
         }
 
         /// <summary>
@@ -184,7 +224,8 @@ namespace MailboxProcessor
         {
             try
             {
-                await _mailbox.Post(message);
+                var mailbox = _scanMailbox ?? _mailbox;
+                await mailbox.Post(message);
             }
             catch (Exception ex)
             {
@@ -192,7 +233,7 @@ namespace MailboxProcessor
             }
         }
 
-        public async Task<TReply> Ask<TReply>(Func<IReplyChannel<TReply>, TMsg> msgf, int? timeout = null)
+        public async Task<TReply> Ask<TReply>(Func<IReplyChannel<TReply>, TMsg> callback, int? timeout = null)
         {
             timeout = timeout ?? DefaultTimeout;
             var tcs = new TaskCompletionSource<TReply>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -206,9 +247,13 @@ namespace MailboxProcessor
 
                 using (cts.Token.Register(() => tcs.TrySetCanceled(this.CancellationToken), useSynchronizationContext: false))
                 {
-                    var msg = msgf(new ReplyChannel<TReply>(reply =>
+                    var msg = callback(new ReplyChannel<TReply>(reply =>
                     {
                         tcs.TrySetResult(reply);
+                    },
+                    error =>
+                    {
+                        tcs.TrySetException(error);
                     }));
 
                     try
@@ -245,7 +290,7 @@ namespace MailboxProcessor
 
         public void ReportError(Exception ex)
         {
-            _errorEvent.OnNext(ex);
+            _errorsObservable.OnNext(ex);
         }
 
         public void Dispose()
@@ -256,6 +301,10 @@ namespace MailboxProcessor
                 if (oldStarted == 1)
                 {
                     AgentStopping?.Invoke(this, EventArgs.Empty);
+                }
+                if (_scanMailbox != null)
+                {
+                    _scanMailbox.Stop(true);
                 }
                 _mailbox.Stop(true);
                 if (oldStarted == 1)

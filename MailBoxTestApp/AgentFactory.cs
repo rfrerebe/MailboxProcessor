@@ -19,7 +19,7 @@ namespace MailBoxTestApp
         #region Doing Real Work here
         private static async Task RunJob(IAgentWriter<Message> agent1, IAgentWriter<Message> agent2, IAgentWriter<Message> agent3, IAgentWriter<Message> agent4)
         {
-            const int numberOfLines = 25000;
+            const int numberOfLines = 1000;
             try
             {
                 // task #1 which uses 1 agent to post lines
@@ -89,20 +89,27 @@ namespace MailBoxTestApp
                     streamWriter.WriteLine($"{n+1}) {addLineandReplyMessage.Line}");
                     ++n;
                     var chan = addLineandReplyMessage.Channel;
-                    chan.Reply(n);
+                    chan.ReplyResult(n);
                 }
                 else if (msg is AddMultyLine addMultyLineMessage)
                 {
-                    streamWriter.WriteLine($"{n+1}) {addMultyLineMessage.Line}");
-                    ++n;
-                    List<string> list = new List<string>();
-                    for (int k = 0; k < 10; ++k)
-                    {
-                        string line4 = $"Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                        list.Add(line4);
-                    }
                     var chan = addMultyLineMessage.Channel;
-                    chan.Reply(new AddMultyLineReply(list.ToArray()));
+                    try
+                    {
+                        streamWriter.WriteLine($"{n + 1}) {addMultyLineMessage.Line}");
+                        ++n;
+                        List<string> list = new List<string>();
+                        for (int k = 0; k < 10; ++k)
+                        {
+                            string line4 = $"Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            list.Add(line4);
+                        }
+                        chan.ReplyResult(new AddMultyLineReply(list.ToArray()));
+                    }
+                    catch (Exception ex)
+                    {
+                        chan.ReplyError(ex);
+                    }
                 }
             }
         }
@@ -137,11 +144,43 @@ namespace MailBoxTestApp
                     sw.Stop();
 
                     var chan = startJob.Channel;
-                    chan.Reply(new StartJobReply(sw.ElapsedMilliseconds));
+                    chan.ReplyResult(new StartJobReply(sw.ElapsedMilliseconds));
                 }
             }
         }
+        
         #endregion
+
+        /// <summary>
+        /// Scan (inspect) message before its processing
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        public static Task<ScanResults> ScanMessage(Message msg)
+        {
+            if (msg is AddLineMessage addLineMessage)
+            {
+                Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
+                return Task.FromResult(ScanResults.None);
+            }
+            else if (msg is AddLineAndReply addLineandReplyMessage)
+            {
+                // var chan = addLineandReplyMessage.Channel;
+                // chan.ReplyResult(0);
+                // return Task.FromResult(ScanResults.Handled);
+                return Task.FromResult(ScanResults.None);
+            }
+            else if (msg is AddMultyLine addMultyLineMessage)
+            {
+                // var chan = addMultyLineMessage.Channel;
+                // chan.ReplyResult(new AddMultyLineReply(new string[0]));
+                // return Task.FromResult(ScanResults.Handled);
+                return Task.FromResult(ScanResults.None);
+            }
+
+            // if ScanResults.None then message is not handled and will be processed as usual
+            return Task.FromResult(ScanResults.None);
+        }
 
         public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions agentOptions= null)
         {
@@ -176,7 +215,9 @@ namespace MailBoxTestApp
                 streamWriter.Flush();
 
                 Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
-            }, agentOptions);
+            }, 
+            agentOptions,
+            scan:ScanMessage);
 
             // agent.AgentStarting += (s, a) => { _agents.AddAgent(thisAgentName, agent); };
             agent.Start();

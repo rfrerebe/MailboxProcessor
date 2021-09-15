@@ -4,21 +4,29 @@ namespace MailboxProcessor
 {
     public interface IReplyChannel<TReply>
     {
-        void Reply(TReply reply);
+        void ReplyResult(TReply reply);
+        void ReplyError(Exception exception);
     }
 
     class ReplyChannel<TReply> : IReplyChannel<TReply>
     {
-        private readonly Action<TReply> _replyf;
+        private readonly Action<TReply> _replyResultFunc;
+        private readonly Action<Exception> _replyErrorFunc;
 
-        internal ReplyChannel(Action<TReply> replyf)
+        internal ReplyChannel(Action<TReply> onResultFunc, Action<Exception> onErrorFunc = null)
         {
-            _replyf = replyf;
+            _replyResultFunc = onResultFunc;
+            _replyErrorFunc = onErrorFunc;
         }
 
-        public void Reply(TReply reply)
+        public void ReplyResult(TReply reply)
         {
-            _replyf(reply);
+            _replyResultFunc(reply);
+        }
+
+        public void ReplyError(Exception exception)
+        {
+            _replyErrorFunc(exception);
         }
     }
 }
