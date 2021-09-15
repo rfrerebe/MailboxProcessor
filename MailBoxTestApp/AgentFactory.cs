@@ -126,7 +126,7 @@ namespace MailBoxTestApp
                     sw.Start();
 
                     string workPath = startJob.WorkPath;
-                    AgentOptions agentOptions = new AgentOptions() { CancellationToken = token, BoundedCapacity = 100 };
+                    AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
 
                     using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
                     using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
@@ -182,8 +182,11 @@ namespace MailBoxTestApp
             return Task.FromResult(ScanResults.None);
         }
 
-        public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions agentOptions= null)
+        public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
         {
+            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
+            agentOptions.scanFunction = ScanMessage;
+
             string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
 
             var agent = new Agent<Message>(async inbox =>
@@ -216,8 +219,7 @@ namespace MailBoxTestApp
 
                 Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
             }, 
-            agentOptions,
-            scan:ScanMessage);
+            agentOptions);
 
             // agent.AgentStarting += (s, a) => { _agents.AddAgent(thisAgentName, agent); };
             agent.Start();
@@ -226,7 +228,7 @@ namespace MailBoxTestApp
             return agent;
         }
 
-        public static IAgentWriter<Message> CreateCoordinatorAgent(AgentOptions agentOptions = null)
+        public static IAgentWriter<Message> CreateCoordinatorAgent(AgentOptions<Message> agentOptions = null)
         {
             var agent = new Agent<Message>(async inbox =>
             {

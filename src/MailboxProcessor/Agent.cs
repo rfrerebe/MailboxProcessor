@@ -7,7 +7,7 @@ namespace MailboxProcessor
 
     public static class Agent
     {
-        public static Agent<T> Start<T>(Func<Agent<T>, Task> body, AgentOptions agentOptions = null)
+        public static Agent<T> Start<T>(Func<Agent<T>, Task> body, AgentOptions<T> agentOptions = null)
             where T : class
         {
             var agent = new Agent<T>(body, agentOptions);
@@ -25,43 +25,52 @@ namespace MailboxProcessor
     public class Agent<TMsg> : IAgent<TMsg>, IDisposable
     {
         private readonly Func<Agent<TMsg>, Task> _body;
-        private readonly Mailbox<TMsg> _mailbox;
+        private readonly Mailbox<TMsg> _outputMailbox;
+        private readonly Mailbox<TMsg> _inputMailbox;
+        private readonly AgentOptions<TMsg> _agentOptions;
+
         private readonly Observable<Exception> _errorsObservable;
         private volatile int _started;
         private Task _agentTask;
         private Task _scanTask;
-        private readonly AgentOptions _agentOptions;
-        private readonly Mailbox<TMsg> _scanMailbox;
-        private readonly Func<TMsg, Task<ScanResults>> _scan;
-
+        
         public event EventHandler<EventArgs> AgentStarting;
         public event EventHandler<EventArgs> AgentStopping;
         public event EventHandler<EventArgs> AgentStopped;
 
-        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions agentOptions = null, Func<TMsg, Task<ScanResults>> scan = null)
+        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions<TMsg> agentOptions = null)
         {
-            _agentOptions = agentOptions ?? AgentOptions.Default;
+            _agentOptions = agentOptions ?? AgentOptions<TMsg>.Default;
             _body = body;
-            _scan = scan;
-            if (scan != null)
+            _inputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity, singleWriter: false);
+
+            if (_agentOptions.scanFunction != null)
             {
-                _scanMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, 100);
+                // unbounded capacity, single writer
+                _outputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, boundedCapacity: null, singleWriter: true);
             }
-            _mailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity);
+            else
+            {
+                // the same as input mailbox
+                _outputMailbox = _inputMailbox;
+            }
+
             _errorsObservable = new Observable<Exception>();
             _started = 0;
             DefaultTimeout = Timeout.Infinite;
         }
 
+        protected bool IsScanAvailable => _agentOptions.scanFunction != null;
+
         public IObservable<Exception> Errors => _errorsObservable;
 
-        public bool IsRunning => !(this.CancellationToken.IsCancellationRequested || this._mailbox.Completion.IsCompleted);
+        public bool IsRunning => !(this.CancellationToken.IsCancellationRequested || this._outputMailbox.Completion.IsCompleted);
 
         public bool IsStarted => this._started == 1;
 
         public int DefaultTimeout { get; set; }
 
-        public CancellationToken CancellationToken => _mailbox.CancellationToken;
+        public CancellationToken CancellationToken => _outputMailbox.CancellationToken;
 
         public void Start()
         {
@@ -107,17 +116,19 @@ namespace MailboxProcessor
             this._agentTask = Task.Factory.StartNew(StartAsync, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
             this._agentTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
 
-            if (_scanMailbox != null)
+            if (IsScanAvailable)
             {
+                var scan = _agentOptions.scanFunction;
+
                 _scanTask = Task.Run(async () => {
                     while (IsRunning)
                     {
                         try
                         {
-                            TMsg msg = await _scanMailbox.Receive();
-                            if (ScanResults.Handled != await _scan(msg))
+                            TMsg msg = await _inputMailbox.Receive();
+                            if (ScanResults.Handled != await scan(msg))
                             {
-                                await _mailbox.Post(msg);
+                                await _outputMailbox.Post(msg);
                             }
                         }
                         catch (Exception ex)
@@ -154,7 +165,7 @@ namespace MailboxProcessor
                         try
                         {
                             var savedTask = _agentTask ?? Task.CompletedTask;
-                            _mailbox.Stop(force);
+                            _outputMailbox.Stop(force);
                             await savedTask;
                         }
                         finally
@@ -224,7 +235,7 @@ namespace MailboxProcessor
         {
             try
             {
-                var mailbox = _scanMailbox ?? _mailbox;
+                var mailbox = _inputMailbox ?? _outputMailbox;
                 await mailbox.Post(message);
             }
             catch (Exception ex)
@@ -278,7 +289,7 @@ namespace MailboxProcessor
         {
             try
             {
-                return await _mailbox.Receive();
+                return await _outputMailbox.Receive();
             }
             catch (Exception ex)
             {
@@ -302,11 +313,10 @@ namespace MailboxProcessor
                 {
                     AgentStopping?.Invoke(this, EventArgs.Empty);
                 }
-                if (_scanMailbox != null)
-                {
-                    _scanMailbox.Stop(true);
-                }
-                _mailbox.Stop(true);
+
+                _inputMailbox.Stop(true);
+                _outputMailbox.Stop(true);
+
                 if (oldStarted == 1)
                 {
                     AgentStopped?.Invoke(this, EventArgs.Empty);

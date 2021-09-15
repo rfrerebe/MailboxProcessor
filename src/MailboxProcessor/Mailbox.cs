@@ -13,7 +13,7 @@ namespace MailboxProcessor
         private readonly CancellationToken _token;
         private CancellationTokenSource _cts;
         private CancellationTokenSource _linkedCts;
-        public Mailbox(CancellationToken? token = null, int? boundedCapacity = null)
+        public Mailbox(CancellationToken? token = null, int? boundedCapacity = null, bool singleWriter = false)
         {
             _cts = new CancellationTokenSource();
             _linkedCts = token.HasValue ? CancellationTokenSource.CreateLinkedTokenSource(token.Value, _cts.Token) : _cts;
@@ -21,11 +21,11 @@ namespace MailboxProcessor
 
             if (boundedCapacity == null)
             {
-                _channel = Channel.CreateUnbounded<TMsg>(new UnboundedChannelOptions() { SingleReader = true, SingleWriter = false, AllowSynchronousContinuations = true });
+                _channel = Channel.CreateUnbounded<TMsg>(new UnboundedChannelOptions() { SingleReader = true, SingleWriter = singleWriter, AllowSynchronousContinuations = true });
             }
             else
             {
-                _channel = Channel.CreateBounded<TMsg>(new BoundedChannelOptions(boundedCapacity.Value) { SingleReader = true, SingleWriter = false, AllowSynchronousContinuations = true });
+                _channel = Channel.CreateBounded<TMsg>(new BoundedChannelOptions(boundedCapacity.Value) { SingleReader = true, SingleWriter = singleWriter, AllowSynchronousContinuations = true });
             }
 
             _writer = _channel.Writer;
