@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace MailboxProcessor
@@ -13,7 +12,10 @@ namespace MailboxProcessor
             this.TaskScheduler = TaskScheduler.Default;
             this.TaskCreationOptions = TaskCreationOptions.None;
             this.BoundedCapacity = 100;
-            this.scanFunction = null;
+
+            this.ScanTaskScheduler = TaskScheduler.Default;
+            this.ScanTaskCreationOptions = TaskCreationOptions.None;
+            this.scanHandler = null;
         }
 
         public int? BoundedCapacity { get; set; }
@@ -21,9 +23,13 @@ namespace MailboxProcessor
         public CancellationToken? CancellationToken { get; set; }
 
         public TaskScheduler TaskScheduler { get; set; }
-
+        
         public TaskCreationOptions TaskCreationOptions { get; set; }
 
-        public Func<T, Task<ScanResults>> scanFunction { get; set;  }
+        public TaskScheduler ScanTaskScheduler { get; set; }
+
+        public TaskCreationOptions ScanTaskCreationOptions { get; set; }
+
+        public IMessageScanHandler<T> scanHandler { get; set;  }
     }
 }

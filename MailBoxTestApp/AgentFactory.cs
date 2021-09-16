@@ -12,7 +12,7 @@ namespace MailBoxTestApp
 {
     public static class AgentFactory
     {
-        #region Doing Real Work here
+        #region Run Job
         private static async Task RunJob(IAgentWriter<Message> agent1, IAgentWriter<Message> agent2, IAgentWriter<Message> agent3, IAgentWriter<Message> agent4)
         {
             const int numberOfLines = 1000;
@@ -114,6 +114,48 @@ namespace MailBoxTestApp
             }
         }
 
+        /// <summary>
+        /// Scan (inspect) message before its processing
+        /// </summary>
+        private class MessageScanHandler : IMessageScanHandler<Message>
+        {
+            void IMessageScanHandler<Message>.OnStart()
+            {
+
+            }
+
+            public Task<ScanResults> Handle(Message msg, CancellationToken token)
+            {
+                if (msg is AddLineMessage addLineMessage)
+                {
+                    // Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
+                    return Task.FromResult(ScanResults.None);
+                }
+                else if (msg is AddLineAndReply addLineandReplyMessage)
+                {
+                    // var chan = addLineandReplyMessage.Channel;
+                    // chan.ReplyResult(0);
+                    // return Task.FromResult(ScanResults.Handled);
+                    return Task.FromResult(ScanResults.None);
+                }
+                else if (msg is AddMultyLine addMultyLineMessage)
+                {
+                    // var chan = addMultyLineMessage.Channel;
+                    // chan.ReplyResult(new AddMultyLineReply(new string[0]));
+                    // return Task.FromResult(ScanResults.Handled);
+                    return Task.FromResult(ScanResults.None);
+                }
+
+                // if ScanResults.None then message is not handled and will be processed as usual
+                return Task.FromResult(ScanResults.None);
+            }
+
+            void IMessageScanHandler<Message>.OnEnd()
+            {
+
+            }
+        }
+
         private class FileAgentHandler : IMessageHandler<Message>
         {
             private readonly string filePath;
@@ -192,41 +234,10 @@ namespace MailBoxTestApp
 
         #endregion
 
-        /// <summary>
-        /// Scan (inspect) message before its processing
-        /// </summary>
-        /// <param name="msg"></param>
-        /// <returns></returns>
-        public static Task<ScanResults> ScanMessage(Message msg)
-        {
-            if (msg is AddLineMessage addLineMessage)
-            {
-               // Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
-                return Task.FromResult(ScanResults.None);
-            }
-            else if (msg is AddLineAndReply addLineandReplyMessage)
-            {
-                // var chan = addLineandReplyMessage.Channel;
-                // chan.ReplyResult(0);
-                // return Task.FromResult(ScanResults.Handled);
-                return Task.FromResult(ScanResults.None);
-            }
-            else if (msg is AddMultyLine addMultyLineMessage)
-            {
-                // var chan = addMultyLineMessage.Channel;
-                // chan.ReplyResult(new AddMultyLineReply(new string[0]));
-                // return Task.FromResult(ScanResults.Handled);
-                return Task.FromResult(ScanResults.None);
-            }
-
-            // if ScanResults.None then message is not handled and will be processed as usual
-            return Task.FromResult(ScanResults.None);
-        }
-
         public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
         {
             agentOptions = agentOptions ?? AgentOptions<Message>.Default;
-            agentOptions.scanFunction = ScanMessage;
+            agentOptions.scanHandler = new MessageScanHandler();
 
             FileAgentHandler fileAgentHandler = new FileAgentHandler(filePath);
 

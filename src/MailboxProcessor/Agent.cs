@@ -16,13 +16,6 @@ namespace MailboxProcessor
         }
     }
 
-    public enum ScanResults
-    {
-        None = 0,
-        Handled = 1
-    }
-
-   
     public class Agent<TMsg> : IAgent<TMsg>, IDisposable
     {
         private readonly IMessageHandler<TMsg> _messageHandler;
@@ -45,7 +38,7 @@ namespace MailboxProcessor
             _messageHandler = messageHandler;
             _inputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity, singleWriter: false);
 
-            if (_agentOptions.scanFunction != null)
+            if (_agentOptions.scanHandler != null)
             {
                 // unbounded capacity, single writer
                 _outputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, boundedCapacity: null, singleWriter: true);
@@ -61,7 +54,7 @@ namespace MailboxProcessor
             DefaultTimeout = Timeout.Infinite;
         }
 
-        protected bool IsScanAvailable => _agentOptions.scanFunction != null;
+        protected bool IsScanAvailable => _agentOptions.scanHandler != null;
 
         public IObservable<Exception> Errors => _errorsObservable;
 
@@ -137,25 +130,34 @@ namespace MailboxProcessor
 
             if (IsScanAvailable)
             {
-                var scan = _agentOptions.scanFunction;
+                var scanHandler = _agentOptions.scanHandler;
 
                 _scanTask = Task.Factory.StartNew(async () => {
-                    while (IsRunning)
+
+                    var token = this.CancellationToken;
+                    scanHandler.OnStart();
+
+                    try
                     {
-                        try
+                        while (IsRunning)
                         {
                             TMsg msg = await _inputMailbox.Receive();
-                            if (ScanResults.Handled != await scan(msg))
+                            if (ScanResults.Handled != await scanHandler.Handle(msg, token))
                             {
                                 await _outputMailbox.Post(msg);
                             }
                         }
-                        catch (Exception ex)
-                        {
-                            HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
-                        }
                     }
-                }, this.CancellationToken, _agentOptions.TaskCreationOptions, _agentOptions.TaskScheduler).Unwrap();
+                    catch (Exception ex)
+                    {
+                        HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
+                    }
+                    finally
+                    {
+                        scanHandler.OnEnd();
+                    }
+                
+                }, this.CancellationToken, _agentOptions.ScanTaskCreationOptions, _agentOptions.ScanTaskScheduler).Unwrap();
 
                 this._scanTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
             }
