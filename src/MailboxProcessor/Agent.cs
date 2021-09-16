@@ -38,7 +38,7 @@ namespace MailboxProcessor
             _messageHandler = messageHandler;
             _inputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity, singleWriter: false);
 
-            if (_agentOptions.scanHandler != null)
+            if (_agentOptions.ScanHandler != null)
             {
                 // unbounded capacity, single writer
                 _outputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, boundedCapacity: null, singleWriter: true);
@@ -54,7 +54,7 @@ namespace MailboxProcessor
             DefaultTimeout = Timeout.Infinite;
         }
 
-        protected bool IsScanAvailable => _agentOptions.scanHandler != null;
+        protected bool IsScanAvailable => _agentOptions.ScanHandler != null;
 
         public IObservable<Exception> Errors => _errorsObservable;
 
@@ -130,7 +130,7 @@ namespace MailboxProcessor
 
             if (IsScanAvailable)
             {
-                var scanHandler = _agentOptions.scanHandler;
+                var scanHandler = _agentOptions.ScanHandler;
 
                 _scanTask = Task.Factory.StartNew(async () => {
 

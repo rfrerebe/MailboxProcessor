@@ -237,7 +237,7 @@ namespace MailBoxTestApp
         public static IAgentWriter<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
         {
             agentOptions = agentOptions ?? AgentOptions<Message>.Default;
-            agentOptions.scanHandler = new MessageScanHandler();
+            agentOptions.ScanHandler = new MessageScanHandler();
 
             FileAgentHandler fileAgentHandler = new FileAgentHandler(filePath);
 

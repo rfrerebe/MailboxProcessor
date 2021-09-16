@@ -15,7 +15,7 @@ namespace MailboxProcessor
 
             this.ScanTaskScheduler = TaskScheduler.Default;
             this.ScanTaskCreationOptions = TaskCreationOptions.None;
-            this.scanHandler = null;
+            this.ScanHandler = null;
         }
 
         public int? BoundedCapacity { get; set; }
@@ -30,6 +30,6 @@ namespace MailboxProcessor
 
         public TaskCreationOptions ScanTaskCreationOptions { get; set; }
 
-        public IMessageScanHandler<T> scanHandler { get; set;  }
+        public IMessageScanHandler<T> ScanHandler { get; set;  }
     }
 }
