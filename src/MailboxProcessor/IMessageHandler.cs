@@ -5,6 +5,10 @@ namespace MailboxProcessor
 {
     public interface IMessageHandler<TMsg>
     {
+        void OnStart();
+
         Task Handle(TMsg message, CancellationToken token);
+        
+        void OnEnd();
     }
 }

@@ -107,6 +107,8 @@ namespace MailboxProcessor
 
                     try
                     {
+                        _messageHandler.OnStart();
+
                         var token = this.CancellationToken;
                         while (IsRunning)
                         {
@@ -117,7 +119,10 @@ namespace MailboxProcessor
                     {
                         HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
                     }
-
+                    finally
+                    {
+                        _messageHandler.OnEnd();
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -335,8 +340,6 @@ namespace MailboxProcessor
                 {
                     AgentStopped?.Invoke(this, EventArgs.Empty);
                 }
-                
-                (this._messageHandler as IDisposable)?.Dispose();
             }
             catch (OperationCanceledException)
             {

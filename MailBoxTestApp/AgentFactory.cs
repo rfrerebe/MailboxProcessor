@@ -65,6 +65,11 @@ namespace MailBoxTestApp
 
         private class CoordinatorAgentHandler : IMessageHandler<Message>
         {
+            void IMessageHandler<Message>.OnStart()
+            {
+
+            }
+
             public async Task Handle(Message msg, CancellationToken token)
             {
                 if (msg is StartJob startJob)
@@ -102,19 +107,30 @@ namespace MailBoxTestApp
                     chan.ReplyResult(new StartJobReply(sw.ElapsedMilliseconds));
                 }
             }
+
+            void IMessageHandler<Message>.OnEnd()
+            {
+                
+            }
         }
 
-        private class FileAgentHandler : IMessageHandler<Message>, IDisposable
+        private class FileAgentHandler : IMessageHandler<Message>
         {
-            private readonly FileStream fileStream;
-            private readonly StreamWriter streamWriter;
+            private readonly string filePath;
             private readonly string workDir;
+
+            private FileStream fileStream;
+            private StreamWriter streamWriter;
             private int n;
 
             public FileAgentHandler(string filePath)
             {
+                this.filePath = filePath;
                 this.workDir = Path.GetDirectoryName(filePath);
+            }
 
+            void IMessageHandler<Message>.OnStart()
+            {
                 if (!Directory.Exists(workDir))
                 {
                     Directory.CreateDirectory(workDir);
@@ -167,7 +183,7 @@ namespace MailBoxTestApp
                 }
             }
 
-            public void Dispose()
+            void IMessageHandler<Message>.OnEnd()
             {
                 this.streamWriter.Dispose();
                 this.fileStream.Dispose();
