@@ -7,10 +7,10 @@ namespace MailboxProcessor
 
     public static class Agent
     {
-        public static Agent<T> Start<T>(Func<Agent<T>, Task> body, AgentOptions<T> agentOptions = null)
+        public static Agent<T> Start<T>(IMessageHandler<T> messageHandler, AgentOptions<T> agentOptions = null)
             where T : class
         {
-            var agent = new Agent<T>(body, agentOptions);
+            var agent = new Agent<T>(messageHandler, agentOptions);
             agent.Start();
             return agent;
         }
@@ -22,9 +22,10 @@ namespace MailboxProcessor
         Handled = 1
     }
 
+   
     public class Agent<TMsg> : IAgent<TMsg>, IDisposable
     {
-        private readonly Func<Agent<TMsg>, Task> _body;
+        private readonly IMessageHandler<TMsg> _messageHandler;
         private readonly Mailbox<TMsg> _outputMailbox;
         private readonly Mailbox<TMsg> _inputMailbox;
         private readonly AgentOptions<TMsg> _agentOptions;
@@ -38,10 +39,10 @@ namespace MailboxProcessor
         public event EventHandler<EventArgs> AgentStopping;
         public event EventHandler<EventArgs> AgentStopped;
 
-        public Agent(Func<Agent<TMsg>, Task> body, AgentOptions<TMsg> agentOptions = null)
+        public Agent(IMessageHandler<TMsg> messageHandler, AgentOptions<TMsg> agentOptions = null)
         {
             _agentOptions = agentOptions ?? AgentOptions<TMsg>.Default;
-            _body = body;
+            _messageHandler = messageHandler;
             _inputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity, singleWriter: false);
 
             if (_agentOptions.scanFunction != null)
@@ -103,7 +104,20 @@ namespace MailboxProcessor
                 try
                 {
                     AgentStarting?.Invoke(this, EventArgs.Empty);
-                    await _body(this);
+
+                    try
+                    {
+                        var token = this.CancellationToken;
+                        while (IsRunning)
+                        {
+                            await _messageHandler.Handle(await Receive(), token);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
+                    }
+
                 }
                 catch (Exception exception)
                 {
@@ -321,6 +335,8 @@ namespace MailboxProcessor
                 {
                     AgentStopped?.Invoke(this, EventArgs.Empty);
                 }
+                
+                (this._messageHandler as IDisposable)?.Dispose();
             }
             catch (OperationCanceledException)
             {

@@ -12,10 +12,6 @@ namespace MailBoxTestApp
 {
     public static class AgentFactory
     {
-        /*
-        private static AgentDictionary<Agent<Message>> _agents = new AgentDictionary<Agent<Message>>();
-        */
-
         #region Doing Real Work here
         private static async Task RunJob(IAgentWriter<Message> agent1, IAgentWriter<Message> agent2, IAgentWriter<Message> agent3, IAgentWriter<Message> agent4)
         {
@@ -67,17 +63,75 @@ namespace MailBoxTestApp
             }
         }
 
-        private static async Task ProcessFile(Func<bool> isRunning, Func<Task<Message>> receive, StreamWriter streamWriter)
+        private class CoordinatorAgentHandler : IMessageHandler<Message>
         {
-            int n = 0;
-
-            while (isRunning())
+            public async Task Handle(Message msg, CancellationToken token)
             {
-                var msg = await receive();
+                if (msg is StartJob startJob)
+                {
+                    Stopwatch sw = new Stopwatch();
+                    sw.Start();
 
+                    try
+                    {
+                        string workPath = startJob.WorkPath;
+                        AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
+
+                        using (var agent1 = CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
+                        using (var agent2 = CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
+                        using (var agent3 = CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), agentOptions))
+                        using (var agent4 = CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), agentOptions))
+                        {
+                            await RunJob(agent1, agent2, agent3, agent4);
+
+                            // allows to wait till all messages processed
+                            Task[] stopTasks = new Task[] { agent1.Stop(), agent2.Stop(), agent3.Stop(), agent4.Stop() };
+                            await Task.WhenAll(stopTasks);
+                        }
+
+                    }
+                    catch(Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        throw;
+                    }
+
+                    sw.Stop();
+
+                    var chan = startJob.Channel;
+                    chan.ReplyResult(new StartJobReply(sw.ElapsedMilliseconds));
+                }
+            }
+        }
+
+        private class FileAgentHandler : IMessageHandler<Message>, IDisposable
+        {
+            private readonly FileStream fileStream;
+            private readonly StreamWriter streamWriter;
+            private readonly string workDir;
+            private int n;
+
+            public FileAgentHandler(string filePath)
+            {
+                this.workDir = Path.GetDirectoryName(filePath);
+
+                if (!Directory.Exists(workDir))
+                {
+                    Directory.CreateDirectory(workDir);
+                }
+
+                const int BUFFER_SIZE = 32 * 1024;
+
+                this.fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, BUFFER_SIZE, false);
+                this.streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, BUFFER_SIZE, true);
+                this.n = 0;
+            }
+
+            public async Task Handle(Message msg, CancellationToken token)
+            {
                 if (msg is AddLineMessage addLineMessage)
                 {
-                    streamWriter.WriteLine($"{n+1}) {addLineMessage.Line}");
+                    streamWriter.WriteLine($"{n + 1}) {addLineMessage.Line}");
                     ++n;
                 }
                 else if (msg is Reset)
@@ -86,7 +140,7 @@ namespace MailBoxTestApp
                 }
                 else if (msg is AddLineAndReply addLineandReplyMessage)
                 {
-                    streamWriter.WriteLine($"{n+1}) {addLineandReplyMessage.Line}");
+                    streamWriter.WriteLine($"{n + 1}) {addLineandReplyMessage.Line}");
                     ++n;
                     var chan = addLineandReplyMessage.Channel;
                     chan.ReplyResult(n);
@@ -112,43 +166,14 @@ namespace MailBoxTestApp
                     }
                 }
             }
-        }
 
-        private static async Task CoordinateWork(Func<bool> isRunning, Func<Task<Message>> receive, CancellationToken token)
-        {
-            while (isRunning())
+            public void Dispose()
             {
-                var msg = await receive();
-
-                if (msg is StartJob startJob)
-                {
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-
-                    string workPath = startJob.WorkPath;
-                    AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
-
-                    using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
-                    using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
-                    using (var agent3 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), agentOptions))
-                    using (var agent4 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), agentOptions))
-                    {
-                        await RunJob(agent1, agent2, agent3, agent4);
-
-                        // allows to wait till all messages processed
-                        Task[] stopTasks = new Task[] { agent1.Stop(), agent2.Stop(), agent3.Stop(), agent4.Stop() };
-                        await Task.WhenAll(stopTasks);
-                    }
-
-
-                    sw.Stop();
-
-                    var chan = startJob.Channel;
-                    chan.ReplyResult(new StartJobReply(sw.ElapsedMilliseconds));
-                }
+                this.streamWriter.Dispose();
+                this.fileStream.Dispose();
             }
         }
-        
+
         #endregion
 
         /// <summary>
@@ -160,7 +185,7 @@ namespace MailBoxTestApp
         {
             if (msg is AddLineMessage addLineMessage)
             {
-                Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
+               // Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
                 return Task.FromResult(ScanResults.None);
             }
             else if (msg is AddLineAndReply addLineandReplyMessage)
@@ -187,65 +212,37 @@ namespace MailBoxTestApp
             agentOptions = agentOptions ?? AgentOptions<Message>.Default;
             agentOptions.scanFunction = ScanMessage;
 
-            string thisAgentName = Path.GetFileNameWithoutExtension(filePath);
+            FileAgentHandler fileAgentHandler = new FileAgentHandler(filePath);
 
-            var agent = new Agent<Message>(async inbox =>
-            {
-                string workDir = Path.GetDirectoryName(filePath);
-                if (!Directory.Exists(workDir))
-                {
-                    Directory.CreateDirectory(workDir);
-                }
+            var agent = new Agent<Message>(fileAgentHandler, agentOptions);
 
-                const int BUFFER_SIZE = 32 * 1024;
+            agent.AgentStarting += (s, a) => {
+                 int threadId = Thread.CurrentThread.ManagedThreadId;
+                 Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
+            };
 
-                using var fileStream = new FileStream(filePath, FileMode.Append, FileAccess.Write, FileShare.Read, BUFFER_SIZE, false);
-                using var streamWriter = new StreamWriter(fileStream, System.Text.Encoding.UTF8, BUFFER_SIZE, true);
-                
+            agent.AgentStopped += (s, a) => {
                 int threadId = Thread.CurrentThread.ManagedThreadId;
-                Console.WriteLine($"Starting MailboxProcessor Thread: {threadId} File: {filePath}");
+                Console.WriteLine($"Stopping MailboxProcessor Thread: {threadId} File: {filePath}");
+            };
 
-                try
-                {
-                    await ProcessFile(()=> inbox.IsRunning, ()=> inbox.Receive(), streamWriter);
-                }
-                catch (OperationCanceledException)
-                {
-                    // NOOP
-                }
-
-
-                streamWriter.Flush();
-
-                Console.WriteLine($"Exiting MailboxProcessor Thread: {threadId} File: {filePath}");
-            }, 
-            agentOptions);
-
-            // agent.AgentStarting += (s, a) => { _agents.AddAgent(thisAgentName, agent); };
             agent.Start();
-            // agent.AgentStopped += (s,a) => { _agents.RemoveAgent(thisAgentName); };
 
             return agent;
         }
 
         public static IAgentWriter<Message> CreateCoordinatorAgent(AgentOptions<Message> agentOptions = null)
         {
-            var agent = new Agent<Message>(async inbox =>
-            {
-                int threadId = Thread.CurrentThread.ManagedThreadId;
-                Console.WriteLine($"Starting Coordinator Agent Thread: {threadId}");
+            var handler = new CoordinatorAgentHandler();
+            var agent = new Agent<Message>(handler, agentOptions);
 
-                try
-                {
-                    await CoordinateWork(() => inbox.IsRunning, () => inbox.Receive(), inbox.CancellationToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    // NOOP
-                }
+            agent.AgentStarting += (s, a) => {
+                Console.WriteLine($"Starting Coordinator");
+            };
 
-                Console.WriteLine($"Exiting Coordinator Agent Thread: {threadId}");
-            }, agentOptions);
+            agent.AgentStopped += (s, a) => {
+                Console.WriteLine($"Stopping Coordinator");
+            };
 
             agent.Start();
 
