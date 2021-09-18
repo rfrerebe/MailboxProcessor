@@ -10,10 +10,11 @@ namespace MailBoxTestApp
     {
         public static IAgent<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
         {
-            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
-            agentOptions.ScanHandler = new MessageScanHandler();
-
             FileAgentHandler fileAgentHandler = new FileAgentHandler(filePath);
+
+            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
+            agentOptions.ScanHandler = fileAgentHandler;
+
 
             var agent = new Agent<Message>(fileAgentHandler, agentOptions);
 
