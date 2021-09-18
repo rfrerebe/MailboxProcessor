@@ -64,30 +64,32 @@ namespace MailBoxTestApp.Handlers
             const int numberOfLines = 25000;
             try
             {
-                // task #1 which uses 1 agent to post lines
-                Func<object, Task> taskBody = async (state) =>
+                IAgent<Message>[] agents = new []{ agent1, agent2, agent3, agent4 };
+
+                Func<Task> taskBody = async () =>
                 {
-                    IAgent<Message> agent = (IAgent<Message>)state;
                     for (int i = 0; i < numberOfLines; ++i)
                     {
                         for (int j = 0; j < 4; ++j)
                         {
                             string line = $"Line{j} {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            await agent.Post(new AddLineMessage(line));
+                            await agents[j].Post(new AddLineMessage(line));
                         }
                     }
                     
-                    // the last message with Ask patern to wait until all messages are processed
-                    string result = await agent.Ask<string>(reply => new WaitForCompletion(reply));
-                    Console.WriteLine(result);
                 };
 
                 // several tasks are run in parrallel
                 await Task.WhenAll(
-                    Task.Factory.StartNew(taskBody, agent1).Unwrap(),
-                    Task.Factory.StartNew(taskBody, agent2).Unwrap(),
-                    Task.Factory.StartNew(taskBody, agent3).Unwrap(),
-                    Task.Factory.StartNew(taskBody, agent4).Unwrap());
+                    Task.Factory.StartNew(taskBody).Unwrap(),
+                    Task.Factory.StartNew(taskBody).Unwrap(),
+                    Task.Factory.StartNew(taskBody).Unwrap(),
+                    Task.Factory.StartNew(taskBody).Unwrap());
+
+                // the last message with Ask patern to wait until all messages are processed
+                Task<string>[] resultTasks = agents.Select(agent => agent.Ask<string>(reply => new WaitForCompletion(reply))).ToArray();
+                string[] results = await Task.WhenAll(resultTasks);
+                Array.ForEach(results,(result) => Console.WriteLine(result));
             }
             catch (OperationCanceledException)
             {
