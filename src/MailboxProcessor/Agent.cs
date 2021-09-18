@@ -330,7 +330,7 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            this.Stop(true).Wait();
+            this.Stop(true).Wait(0);
         }
     }
 }

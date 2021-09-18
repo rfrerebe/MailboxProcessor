@@ -1,9 +1,6 @@
 ﻿using MailboxProcessor;
 using MailBoxTestApp.Messages;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -62,34 +59,21 @@ namespace MailBoxTestApp.Handlers
             return Task.CompletedTask;
         }
 
-        protected virtual Task OnMessage(AddLineAndReply msg, CancellationToken token)
+        protected virtual Task OnMessage(WaitForCompletion msg, CancellationToken token)
         {
-            streamWriter.WriteLine($"{n + 1}) {msg.Line}");
-            ++n;
             var chan = msg.Channel;
-            chan.ReplyResult(n);
+            chan.ReplyResult($"Processed {n:N0} lines");
             return Task.CompletedTask;
         }
 
-        protected virtual Task OnMessage(AddMultyLine msg, CancellationToken token)
+        /// <summary>
+        /// Catchall message handler (do logging here for unknown messages)
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        protected virtual Task OnMessage(Message msg, CancellationToken token)
         {
-            var chan = msg.Channel;
-            try
-            {
-                streamWriter.WriteLine($"{n + 1}) {msg.Line}");
-                ++n;
-                List<string> list = new List<string>();
-                for (int k = 0; k < 10; ++k)
-                {
-                    string line4 = $"Line4 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                    list.Add(line4);
-                }
-                chan.ReplyResult(new AddMultyLineReply(list.ToArray()));
-            }
-            catch (Exception ex)
-            {
-                chan.ReplyError(ex);
-            }
             return Task.CompletedTask;
         }
     }

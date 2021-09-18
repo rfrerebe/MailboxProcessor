@@ -61,47 +61,33 @@ namespace MailBoxTestApp.Handlers
 
         private async Task StartJob(IAgent<Message> agent1, IAgent<Message> agent2, IAgent<Message> agent3, IAgent<Message> agent4)
         {
-            const int numberOfLines = 1000;
+            const int numberOfLines = 25000;
             try
             {
                 // task #1 which uses 1 agent to post lines
-                Func<Task> taskPart1 = async () =>
+                Func<object, Task> taskBody = async (state) =>
                 {
+                    IAgent<Message> agent = (IAgent<Message>)state;
                     for (int i = 0; i < numberOfLines; ++i)
                     {
-                        for (int j = 0; j < 5; ++j)
+                        for (int j = 0; j < 4; ++j)
                         {
-                            string line3 = $"Line3 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            await agent3.Post(new AddLineMessage(line3));
+                            string line = $"Line{j} {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+                            await agent.Post(new AddLineMessage(line));
                         }
                     }
-                };
-
-                // task #2 which uses several agents to post lines and get replies
-                Func<Task> taskPart2 = async () =>
-                {
-                    for (int i = 0; i < numberOfLines; ++i)
-                    {
-                        string line = $"Line1 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                        var lineNumber = await agent1.Ask<int?>(channel => new AddLineAndReply(channel, line));
-
-                        for (int j = 0; j < 5; ++j)
-                        {
-                            string line2 = $"Line2 {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            // wait for reply
-                            var reply = await agent2.Ask<AddMultyLineReply>(channel => new AddMultyLine(channel, line: line2));
-
-                            // send all lines in reply to agent4
-                            foreach (var line4 in reply.Lines)
-                            {
-                                await agent4.Post(new AddLineMessage(line4));
-                            }
-                        }
-                    }
+                    
+                    // the last message with Ask patern to wait until all messages are processed
+                    string result = await agent.Ask<string>(reply => new WaitForCompletion(reply));
+                    Console.WriteLine(result);
                 };
 
                 // several tasks are run in parrallel
-                await Task.WhenAll(Task.Run(taskPart1), Task.Run(taskPart1), Task.Run(taskPart1), Task.Run(taskPart2));
+                await Task.WhenAll(
+                    Task.Factory.StartNew(taskBody, agent1).Unwrap(),
+                    Task.Factory.StartNew(taskBody, agent2).Unwrap(),
+                    Task.Factory.StartNew(taskBody, agent3).Unwrap(),
+                    Task.Factory.StartNew(taskBody, agent4).Unwrap());
             }
             catch (OperationCanceledException)
             {
