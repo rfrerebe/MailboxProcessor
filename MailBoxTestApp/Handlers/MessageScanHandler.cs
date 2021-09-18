@@ -1,5 +1,6 @@
 ﻿using MailboxProcessor;
 using MailBoxTestApp.Messages;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,26 +11,35 @@ namespace MailBoxTestApp.Handlers
     /// </summary>
     internal class MessageScanHandler : IMessageScanHandler<Message>
     {
+        private readonly IAgent<Message> _countAgent;
+
+        public MessageScanHandler(IAgent<Message> countAgent)
+        {
+            _countAgent = countAgent;
+        }
+
         void IMessageScanHandler<Message>.OnStart()
         {
 
         }
 
-        public Task<ScanResults> Handle(Message msg, CancellationToken token)
+        public async Task<ScanResults> Handle(Message msg, CancellationToken token)
         {
             if (msg is AddLineMessage addLineMessage)
             {
-                // Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
-                return Task.FromResult(ScanResults.None);
+                // send message for additional processing
+                await _countAgent.Post(new CountMessage());
+
+                return ScanResults.None; //ScanResults.Handled
             }
 
             // if ScanResults.None then message is not handled and will be processed as usual
-            return Task.FromResult(ScanResults.None);
+            return ScanResults.None;
         }
 
         void IMessageScanHandler<Message>.OnEnd()
         {
-
+            
         }
     }
 }

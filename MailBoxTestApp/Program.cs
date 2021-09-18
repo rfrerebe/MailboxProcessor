@@ -13,19 +13,20 @@ namespace MailBoxTestApp
             CancellationTokenSource cts = new CancellationTokenSource();
             // cts.CancelAfter(100);
 
-            AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = cts.Token, BoundedCapacity = 50 };
+            AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = cts.Token, BoundedCapacity = 100 };
 
-            var agent = AgentFactory.CreateCoordinatorAgent(agentOptions);
+            using IAgent<Message> coordinatorAgent = AgentFactory.CreateCoordinatorAgent(agentOptions);
+            using IAgent<Message> countAgent = AgentFactory.CreateCountAgent(@"c:\TEMP\count.txt", agentOptions);
             try
             {
-
-                await Job.Run(agent, @"c:\TEMP\DIR1", "Job1");
-                await Job.Run(agent, @"c:\TEMP\DIR2", "Job2");
-
+                await Job.Run(coordinatorAgent, @"c:\TEMP\DIR1", "Job1", countAgent);
+                await Job.Run(coordinatorAgent, @"c:\TEMP\DIR2", "Job2", countAgent);
             }
             finally
             {
-                await agent.Stop();
+                // waits to process all messages
+                await coordinatorAgent.Stop();
+                await countAgent.Stop();
             }
 
             await Task.Yield();

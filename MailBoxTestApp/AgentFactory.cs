@@ -8,14 +8,14 @@ namespace MailBoxTestApp
 {
     public static class AgentFactory
     {
-        public static IAgent<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
+        public static IAgent<Message> CreateFileAgent(string filePath, IAgent<Message> countAgent, AgentOptions<Message> agentOptions= null)
         {
             agentOptions = agentOptions ?? AgentOptions<Message>.Default;
-            agentOptions.ScanHandler = new MessageScanHandler();
+            agentOptions.ScanHandler = new MessageScanHandler(countAgent);
 
-            FileAgentHandler fileAgentHandler = new FileAgentHandler(filePath);
+            FileAgentHandler agentHandler = new FileAgentHandler(filePath);
 
-            var agent = new Agent<Message>(fileAgentHandler, agentOptions);
+            var agent = new Agent<Message>(agentHandler, agentOptions);
 
             agent.AgentStarting += (s, a) => {
                  int threadId = Thread.CurrentThread.ManagedThreadId;
@@ -26,6 +26,19 @@ namespace MailBoxTestApp
                 int threadId = Thread.CurrentThread.ManagedThreadId;
                 Console.WriteLine($"Stopping MailboxProcessor Thread: {threadId} File: {filePath}");
             };
+
+            agent.Start();
+
+            return agent;
+        }
+
+        public static IAgent<Message> CreateCountAgent(string filePath, AgentOptions<Message> agentOptions = null)
+        {
+            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
+
+            CountAgentHandler agentHandler = new CountAgentHandler(filePath);
+
+            var agent = new Agent<Message>(agentHandler, agentOptions);
 
             agent.Start();
 

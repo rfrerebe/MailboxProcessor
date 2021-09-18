@@ -28,10 +28,10 @@ namespace MailBoxTestApp.Handlers
                     string workPath = startJob.WorkPath;
                     AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
 
-                    using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), agentOptions))
-                    using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), agentOptions))
-                    using (var agent3 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), agentOptions))
-                    using (var agent4 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), agentOptions))
+                    using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), startJob.countAgent, agentOptions))
+                    using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), startJob.countAgent, agentOptions))
+                    using (var agent3 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), startJob.countAgent, agentOptions))
+                    using (var agent4 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), startJob.countAgent, agentOptions))
                     {
                         await StartJob(agent1, agent2, agent3, agent4);
 
