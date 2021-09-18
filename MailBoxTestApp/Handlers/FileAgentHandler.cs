@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MailBoxTestApp.Handlers
 {
-    internal class FileAgentHandler : IMessageHandler<Message>, IMessageScanHandler<Message>
+    internal class FileAgentHandler : IMessageHandler<Message>
     {
         private readonly string filePath;
         private readonly string workDir;
@@ -20,34 +20,6 @@ namespace MailBoxTestApp.Handlers
             this.filePath = filePath;
             this.workDir = Path.GetDirectoryName(filePath);
         }
-
-        #region IMessageScanHandler<Message>
-
-        void IMessageScanHandler<Message>.OnStart()
-        {
-
-        }
-
-        Task<ScanResults> IMessageScanHandler<Message>.Handle(Message msg, CancellationToken token)
-        {
-            if (msg is AddLineMessage addLineMessage)
-            {
-                // Console.WriteLine($"Scanned {addLineMessage.Line.Substring(0, 35)}");
-                return Task.FromResult(ScanResults.None);
-            }
-
-            // if ScanResults.None then message is not handled and will be processed as usual
-            return Task.FromResult(ScanResults.None);
-        }
-
-        void IMessageScanHandler<Message>.OnEnd()
-        {
-
-        }
-
-        #endregion
-
-        #region IMessageHandler<Message>
 
         void IMessageHandler<Message>.OnStart()
         {
@@ -63,7 +35,7 @@ namespace MailBoxTestApp.Handlers
             this.n = 0;
         }
 
-        Task IMessageHandler<Message>.Handle(Message msg, CancellationToken token)
+        public Task Handle(Message msg, CancellationToken token)
         {
             return this.OnMessage((dynamic)msg, token);
         }
@@ -73,8 +45,6 @@ namespace MailBoxTestApp.Handlers
             this.streamWriter.Dispose();
             this.fileStream.Dispose();
         }
-
-        #endregion
 
         protected virtual Task OnMessage(Reset msg, CancellationToken token)
         {
