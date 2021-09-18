@@ -9,27 +9,22 @@ namespace MailBoxTestApp
     class Program
     {
         static async Task Main(string[] args)
-        {
+        { 
             CancellationTokenSource cts = new CancellationTokenSource();
             // cts.CancelAfter(100);
 
-            AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken= cts.Token, BoundedCapacity= 50 };
-          
+            AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = cts.Token, BoundedCapacity = 50 };
 
-            using (var agent = AgentFactory.CreateCoordinatorAgent(agentOptions))
+            var agent = AgentFactory.CreateCoordinatorAgent(agentOptions);
+            try
             {
-                // ************** Start a first Job here ************************
-                string workPath = @"c:\TEMP\DIR1";
-                var jobReply = await agent.Ask<StartJobReply>(channel => new StartJob(channel, workPath));
 
-                Console.WriteLine($"Job1 took: {jobReply.JobTimeMilliseconds} milliseconds");
+                await Job.Run(agent, @"c:\TEMP\DIR1", "Job1");
+                await Job.Run(agent, @"c:\TEMP\DIR2", "Job2");
 
-                // ************** Start a second Job here ************************
-                workPath = @"c:\TEMP\DIR2";
-                jobReply = await agent.Ask<StartJobReply>(channel => new StartJob(channel, workPath));
-
-                Console.WriteLine($"Job2 took: {jobReply.JobTimeMilliseconds} milliseconds");
-
+            }
+            finally
+            {
                 await agent.Stop();
             }
 

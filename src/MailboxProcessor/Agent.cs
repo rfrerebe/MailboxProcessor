@@ -5,18 +5,7 @@ namespace MailboxProcessor
     using System.Threading;
     using System.Threading.Tasks;
 
-    public static class Agent
-    {
-        public static Agent<T> Start<T>(IMessageHandler<T> messageHandler, AgentOptions<T> agentOptions = null)
-            where T : class
-        {
-            var agent = new Agent<T>(messageHandler, agentOptions);
-            agent.Start();
-            return agent;
-        }
-    }
-
-    public class Agent<TMsg> : IAgent<TMsg>, IDisposable
+    public class Agent<TMsg> : IAgentWorker<TMsg>, IDisposable
     {
         private readonly IMessageHandler<TMsg> _messageHandler;
         private readonly Mailbox<TMsg> _outputMailbox;
@@ -168,7 +157,7 @@ namespace MailboxProcessor
         /// </summary>
         /// <param name="force">If force is true then all message processing stops immediately</param>
         /// <returns></returns>
-        public async Task Stop(bool force = false)
+        public async Task Stop(bool force = false, TimeSpan? timeout = null)
         {
             int oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
             if (oldStarted == 1)
@@ -185,9 +174,23 @@ namespace MailboxProcessor
                     {
                         try
                         {
-                            var savedTask = _agentTask ?? Task.CompletedTask;
-                            _outputMailbox.Stop(force);
-                            await savedTask;
+                            var savedTask1 = _agentTask ?? Task.CompletedTask;
+                            var savedTask2 = _scanTask ?? Task.CompletedTask;
+                            _inputMailbox.Stop(force);
+                            if (IsScanAvailable)
+                            {
+                                _outputMailbox.Stop(force);
+                            }
+                            Task waitAllTask = Task.WhenAll(savedTask1, savedTask2);
+                            
+                            if (timeout != null)
+                            {
+                                await Task.WhenAny(waitAllTask, Task.Delay(timeout.Value));
+                            }
+                            else
+                            {
+                                await waitAllTask;
+                            }
                         }
                         finally
                         {
@@ -327,32 +330,7 @@ namespace MailboxProcessor
 
         public void Dispose()
         {
-            try
-            {
-                var oldStarted = Interlocked.CompareExchange(ref _started, 0, 1);
-                if (oldStarted == 1)
-                {
-                    AgentStopping?.Invoke(this, EventArgs.Empty);
-                }
-
-                _inputMailbox.Stop(true);
-                _outputMailbox.Stop(true);
-
-                if (oldStarted == 1)
-                {
-                    AgentStopped?.Invoke(this, EventArgs.Empty);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // NOOP
-            }
-            finally
-            {
-                AgentStopping = null;
-                AgentStopped = null;
-                AgentStarting = null;
-            }
+            this.Stop(true).Wait();
         }
     }
 }
