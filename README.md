@@ -13,5 +13,5 @@ With ScanHandler messages can be expected in a separate handler, and be sent to 
 
 Agents are lightweight so you can instantiate a lot of them without consuming a lot of OS resources.
 
-Thge Test application creates agents to write into separate files - each agents handles its own file
+The Test application creates agents to write into separate files - each agents handles its own file
 and writes to it in a thread safe manner.
