@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace MailboxProcessor
 {
-    public class AgentOptions<T>
+    public record AgentOptions<T>
     {
         public static readonly AgentOptions<T> Default = new AgentOptions<T>();
 
@@ -16,20 +16,35 @@ namespace MailboxProcessor
             this.ScanTaskScheduler = TaskScheduler.Default;
             this.ScanTaskCreationOptions = TaskCreationOptions.None;
             this.ScanHandler = null;
+            this.ScanBoundedCapacity = 100;
         }
 
-        public int? BoundedCapacity { get; set; }
+        public AgentOptions(AgentOptions<T> agentOptions)
+        {
+            this.TaskScheduler = agentOptions.TaskScheduler;
+            this.TaskCreationOptions = agentOptions.TaskCreationOptions;
+            this.BoundedCapacity = agentOptions.BoundedCapacity;
 
-        public CancellationToken? CancellationToken { get; set; }
+            this.ScanTaskScheduler = agentOptions.ScanTaskScheduler;
+            this.ScanTaskCreationOptions = agentOptions.ScanTaskCreationOptions;
+            this.ScanHandler = agentOptions.ScanHandler;
+            this.ScanBoundedCapacity = agentOptions.ScanBoundedCapacity;
+        }
 
-        public TaskScheduler TaskScheduler { get; set; }
-        
-        public TaskCreationOptions TaskCreationOptions { get; set; }
+        public int? BoundedCapacity { get; init; }
 
-        public TaskScheduler ScanTaskScheduler { get; set; }
+        public CancellationToken? CancellationToken { get; init; }
 
-        public TaskCreationOptions ScanTaskCreationOptions { get; set; }
+        public TaskScheduler TaskScheduler { get; init; }
 
-        public IMessageScanHandler<T> ScanHandler { get; set;  }
+        public TaskCreationOptions TaskCreationOptions { get; init; }
+
+        public TaskScheduler ScanTaskScheduler { get; init; }
+
+        public TaskCreationOptions ScanTaskCreationOptions { get; init; }
+
+        public int? ScanBoundedCapacity { get; init; }
+
+        public IMessageScanHandler<T> ScanHandler { get; init; }
     }
 }

@@ -8,13 +8,12 @@ namespace MailBoxTestApp
 {
     public static class AgentFactory
     {
-        public static IAgent<Message> CreateFileAgent(string filePath, IAgent<Message> countAgent, AgentOptions<Message> agentOptions= null)
+        public static IAgent<Message> CreateFileAgent(string filePath, AgentOptions<Message> agentOptions= null)
         {
-            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
-            agentOptions.ScanHandler = new MessageScanHandler(countAgent);
-
             FileAgentHandler agentHandler = new FileAgentHandler(filePath);
 
+            agentOptions = agentOptions ?? AgentOptions<Message>.Default;
+        
             var agent = new Agent<Message>(agentHandler, agentOptions);
 
             agent.AgentStarting += (s, a) => {

@@ -25,12 +25,18 @@ namespace MailboxProcessor
         {
             _agentOptions = agentOptions ?? AgentOptions<TMsg>.Default;
             _messageHandler = messageHandler;
-            _inputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, agentOptions.BoundedCapacity, singleWriter: false);
+            _inputMailbox = new Mailbox<TMsg>(
+                agentOptions.CancellationToken, 
+                agentOptions.BoundedCapacity, 
+                singleWriter: false);
 
             if (_agentOptions.ScanHandler != null)
             {
                 // unbounded capacity, single writer
-                _outputMailbox = new Mailbox<TMsg>(agentOptions.CancellationToken, boundedCapacity: null, singleWriter: true);
+                _outputMailbox = new Mailbox<TMsg>(
+                    agentOptions.CancellationToken, 
+                    boundedCapacity: agentOptions.ScanBoundedCapacity, 
+                    singleWriter: true);
             }
             else
             {

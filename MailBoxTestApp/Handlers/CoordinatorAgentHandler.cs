@@ -28,13 +28,19 @@ namespace MailBoxTestApp.Handlers
                 try
                 {
                     string workPath = startJob.WorkPath;
-                    AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
+                    AgentOptions<Message> agentOptions = new AgentOptions<Message>()
+                    {
+                        CancellationToken = token,
+                        BoundedCapacity = 100,
+                        ScanHandler = new MessageScanHandler(startJob.countAgent)
+                    };
+
+                    // AgentOptions<Message> agentOptions1 = new AgentOptions<Message>(agentOptions) { ScanHandler = null };
 
                     IAgent<Message>[] fileAgents = Enumerable.Repeat(0, AGENTS_COUNT).Select((x, index) =>
                     {
                         return AgentFactory.CreateFileAgent(
                             filePath: Path.Combine(workPath, $"testMailbox{index+1}.txt"),
-                            countAgent: startJob.countAgent,
                             agentOptions: agentOptions);
                     }).ToArray();
 
