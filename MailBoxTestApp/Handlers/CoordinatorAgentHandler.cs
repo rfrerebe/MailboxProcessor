@@ -1,6 +1,7 @@
 ﻿using MailboxProcessor;
 using MailBoxTestApp.Messages;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,7 @@ namespace MailBoxTestApp.Handlers
 {
     internal class CoordinatorAgentHandler : IMessageHandler<Message>
     {
+        private const int AGENTS_COUNT = 5;
         void IMessageHandler<Message>.OnStart()
         {
 
@@ -28,15 +30,21 @@ namespace MailBoxTestApp.Handlers
                     string workPath = startJob.WorkPath;
                     AgentOptions<Message> agentOptions = new AgentOptions<Message>() { CancellationToken = token, BoundedCapacity = 100 };
 
-                    using (var agent1 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox1.txt"), startJob.countAgent, agentOptions))
-                    using (var agent2 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox2.txt"), startJob.countAgent, agentOptions))
-                    using (var agent3 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox3.txt"), startJob.countAgent, agentOptions))
-                    using (var agent4 = AgentFactory.CreateFileAgent(filePath: Path.Combine(workPath, "testMailbox4.txt"), startJob.countAgent, agentOptions))
+                    IAgent<Message>[] fileAgents = Enumerable.Repeat(0, AGENTS_COUNT).Select((x, index) =>
                     {
-                        await StartJob(agent1, agent2, agent3, agent4);
+                        return AgentFactory.CreateFileAgent(
+                            filePath: Path.Combine(workPath, $"testMailbox{index+1}.txt"),
+                            countAgent: startJob.countAgent,
+                            agentOptions: agentOptions);
+                    }).ToArray();
+
+                    // disposing is not  really needed because we wait for completion with 'Stop', but it does not hurt
+                    using (var agentsDisposable = new CompositeDisposable(fileAgents))
+                    {
+                        await StartJob(fileAgents);
 
                         // allows to wait till all messages processed
-                        Task[] stopTasks = new Task[] { agent1.Stop(), agent2.Stop(), agent3.Stop(), agent4.Stop() };
+                        Task[] stopTasks = fileAgents.Select(agent => agent.Stop()).ToArray();
                         await Task.WhenAll(stopTasks);
                     }
 
@@ -59,35 +67,31 @@ namespace MailBoxTestApp.Handlers
 
         }
 
-        private async Task StartJob(IAgent<Message> agent1, IAgent<Message> agent2, IAgent<Message> agent3, IAgent<Message> agent4)
+        private async Task StartJob(IEnumerable<IAgent<Message>> agents)
         {
-            const int numberOfLines = 25000;
+            const int numberOfLines = 100000;
             try
             {
-                IAgent<Message>[] agents = new []{ agent1, agent2, agent3, agent4 };
+                IAgent<Message>[] _agents = agents.ToArray();
+                int agentsCount = _agents.Length;
 
-                Func<Task> taskBody = async () =>
+
+                Func <Task> taskBody = async () =>
                 {
                     for (int i = 0; i < numberOfLines; ++i)
                     {
-                        for (int j = 0; j < 4; ++j)
-                        {
-                            string line = $"Line{j} {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
-                            await agents[j].Post(new AddLineMessage(line));
-                        }
+                        string line = $"Line{i % agentsCount} {string.Concat(Enumerable.Repeat(Guid.NewGuid().ToString(), 25))}";
+
+                        await _agents[i % agentsCount].Post(new AddLineMessage(line));
                     }
-                    
                 };
 
                 // several tasks are run in parrallel
-                await Task.WhenAll(
-                    Task.Factory.StartNew(taskBody).Unwrap(),
-                    Task.Factory.StartNew(taskBody).Unwrap(),
-                    Task.Factory.StartNew(taskBody).Unwrap(),
-                    Task.Factory.StartNew(taskBody).Unwrap());
+                await Task.WhenAll(_agents.Select(x => Task.Run(taskBody)).ToList());
 
                 // the last message with Ask patern to wait until all messages are processed
-                Task<string>[] resultTasks = agents.Select(agent => agent.Ask<string>(reply => new WaitForCompletion(reply))).ToArray();
+                // (not really needed because 'Stop' waits fot completion anyway, but we can get the results of processing here)
+                Task<string>[] resultTasks = _agents.Select(agent => agent.Ask<string>(reply => new WaitForCompletion(reply))).ToArray();
                 string[] results = await Task.WhenAll(resultTasks);
                 Array.ForEach(results,(result) => Console.WriteLine(result));
             }
