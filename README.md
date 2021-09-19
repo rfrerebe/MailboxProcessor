@@ -1,5 +1,8 @@
 # MailboxProcessor
-Single Threaded MailboxProcessor (Mini Agent) written in C# using System.Threading.Channels
+Single Threaded MailboxProcessor (Mini Agent) written in C# using System.Threading.Channels.
+
+Currently i could not find a good robust agent implementation for C#, so i wrote my own.
+There exists one for F#, but i don't want to learn this language. 
 
 
 This is a simple agent for asynchronous message processing with preserving the state.
