@@ -194,8 +194,6 @@ namespace MailboxProcessor
                                     await completion.ContinueWith((antecedent) => _outputMailbox.Stop(false));
                                     completion = _outputMailbox.Completion;
                                 }
-
-                                waitAllTask = completion;
                             }
                             else
                             {
@@ -204,9 +202,9 @@ namespace MailboxProcessor
                                 {
                                     _outputMailbox.Stop(true);
                                 }
-
-                                waitAllTask = Task.WhenAll(savedTask1, savedTask2);
                             }
+
+                            waitAllTask = Task.WhenAll(savedTask1, savedTask2);
 
 
                             if (timeout != null)
