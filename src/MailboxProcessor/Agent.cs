@@ -182,13 +182,33 @@ namespace MailboxProcessor
                         {
                             var savedTask1 = _agentTask ?? Task.CompletedTask;
                             var savedTask2 = _scanTask ?? Task.CompletedTask;
-                            _inputMailbox.Stop(force);
-                            if (IsScanAvailable)
+                            var completion = _inputMailbox.Completion;
+                            Task waitAllTask = Task.CompletedTask;
+
+                            if (!force)
                             {
-                                _outputMailbox.Stop(force);
+                                _inputMailbox.Stop(false);
+
+                                if (IsScanAvailable)
+                                {
+                                    await completion.ContinueWith((antecedent) => _outputMailbox.Stop(false));
+                                    completion = _outputMailbox.Completion;
+                                }
+
+                                waitAllTask = completion;
                             }
-                            Task waitAllTask = Task.WhenAll(savedTask1, savedTask2);
-                            
+                            else
+                            {
+                                _inputMailbox.Stop(true);
+                                if (IsScanAvailable)
+                                {
+                                    _outputMailbox.Stop(true);
+                                }
+
+                                waitAllTask = Task.WhenAll(savedTask1, savedTask2);
+                            }
+
+
                             if (timeout != null)
                             {
                                 await Task.WhenAny(waitAllTask, Task.Delay(timeout.Value));
