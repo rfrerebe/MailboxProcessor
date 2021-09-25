@@ -23,18 +23,21 @@ namespace MailBoxTestApp.Handlers
 
         }
 
-        public async Task<ScanResults> Handle(Message msg, CancellationToken token)
+        public async Task<Message[]> Handle(Message msg, CancellationToken token)
         {
             if (msg is AddLineMessage addLineMessage)
             {
                 // send message for additional processing
                 await _countAgent.Post(new CountMessage());
 
-                return ScanResults.None; //ScanResults.Handled
+                // returns the message to continue its processing in the main handler 
+                return new[] { addLineMessage };
             }
 
-            // if ScanResults.None then message is not handled and will be processed as usual
-            return ScanResults.None;
+            // returns the message to continue its processing in the main handler 
+            // if it returns 'null' then the message will not be processed in the main handler (treated as already handled here)
+            // it can also return multiple messages
+            return new[] { msg };
         }
 
         void IMessageScanHandler<Message>.OnEnd()

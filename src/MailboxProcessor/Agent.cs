@@ -49,6 +49,49 @@ namespace MailboxProcessor
             DefaultTimeout = Timeout.Infinite;
         }
 
+        /// <summary>
+        /// Initializes the task which inspects incomming messages
+        /// </summary>
+        /// <param name="onTaskError">handler for the task errors</param>
+        private void _InitScan(Action<Task> onTaskError)
+        {
+            var scanHandler = _agentOptions.ScanHandler;
+
+            _scanTask = Task.Factory.StartNew(async () => {
+
+                var token = this.CancellationToken;
+                scanHandler.OnStart();
+                TMsg[] scanResults = null;
+
+                try
+                {
+                    while (IsRunning)
+                    {
+                        TMsg msg = await _inputMailbox.Receive();
+                        // processing scanned messages it can be null, or an array containing the original or new messages
+                        if ((scanResults = await scanHandler.Handle(msg, token)) != null)
+                        {
+                            foreach (TMsg scannedMsg in scanResults)
+                            {
+                                await _outputMailbox.Post(scannedMsg);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
+                }
+                finally
+                {
+                    scanHandler.OnEnd();
+                }
+
+            }, this.CancellationToken, _agentOptions.ScanTaskCreationOptions, _agentOptions.ScanTaskScheduler).Unwrap();
+
+            this._scanTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
+        }
+
         protected bool IsScanAvailable => _agentOptions.ScanHandler != null;
 
         public IObservable<Exception> Errors => _errorsObservable;
@@ -125,36 +168,7 @@ namespace MailboxProcessor
 
             if (IsScanAvailable)
             {
-                var scanHandler = _agentOptions.ScanHandler;
-
-                _scanTask = Task.Factory.StartNew(async () => {
-
-                    var token = this.CancellationToken;
-                    scanHandler.OnStart();
-
-                    try
-                    {
-                        while (IsRunning)
-                        {
-                            TMsg msg = await _inputMailbox.Receive();
-                            if (ScanResults.Handled != await scanHandler.Handle(msg, token))
-                            {
-                                await _outputMailbox.Post(msg);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        HandleException(this.IsRunning, this.CancellationToken, ExceptionDispatchInfo.Capture(ex));
-                    }
-                    finally
-                    {
-                        scanHandler.OnEnd();
-                    }
-                
-                }, this.CancellationToken, _agentOptions.ScanTaskCreationOptions, _agentOptions.ScanTaskScheduler).Unwrap();
-
-                this._scanTask.ContinueWith(onTaskError, TaskContinuationOptions.ExecuteSynchronously);
+                this._InitScan(onTaskError);
             }
         }
 

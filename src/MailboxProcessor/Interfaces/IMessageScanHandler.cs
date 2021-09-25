@@ -7,7 +7,13 @@ namespace MailboxProcessor
     {
         void OnStart();
 
-        Task<ScanResults> Handle(TMsg message, CancellationToken token);
+        /// <summary>
+        ///  scans (inspects) a message
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="token"></param>
+        /// <returns>it can be null, or an array containing the original or new messages</returns>
+        Task<TMsg[]> Handle(TMsg message, CancellationToken token);
         
         void OnEnd();
     }
