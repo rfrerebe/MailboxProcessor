@@ -1,6 +1,5 @@
 ﻿using MailboxProcessor;
 using MailBoxTestApp.Messages;
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,7 +17,7 @@ namespace MailBoxTestApp.Handlers
             _countAgent = countAgent;
         }
 
-        void IMessageScanHandler<Message>.OnStart()
+        void IMessageScanHandler<Message>.OnStart(IAgent<Message> agent)
         {
 
         }

@@ -13,7 +13,8 @@ namespace MailBoxTestApp.Handlers
     internal class CoordinatorAgentHandler : IMessageHandler<Message>
     {
         private const int AGENTS_COUNT = 5;
-        void IMessageHandler<Message>.OnStart()
+
+        void IMessageHandler<Message>.OnStart(IAgent<Message> agent)
         {
 
         }

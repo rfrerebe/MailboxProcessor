@@ -21,7 +21,7 @@ namespace MailBoxTestApp.Handlers
             this.workDir = Path.GetDirectoryName(filePath);
         }
 
-        void IMessageHandler<Message>.OnStart()
+        void IMessageHandler<Message>.OnStart(IAgent<Message> agent)
         {
             if (!Directory.Exists(workDir))
             {

@@ -60,7 +60,7 @@ namespace MailboxProcessor
             _scanTask = Task.Factory.StartNew(async () => {
 
                 var token = this.CancellationToken;
-                scanHandler.OnStart();
+                scanHandler.OnStart(this);
                 TMsg[] scanResults = null;
 
                 try
@@ -138,7 +138,7 @@ namespace MailboxProcessor
 
                     try
                     {
-                        _messageHandler.OnStart();
+                        _messageHandler.OnStart(this);
 
                         var token = this.CancellationToken;
                         while (IsRunning)

@@ -5,7 +5,7 @@ namespace MailboxProcessor
 {
     public interface IMessageScanHandler<TMsg>
     {
-        void OnStart();
+        void OnStart(IAgent<TMsg> agent);
 
         /// <summary>
         ///  scans (inspects) a message
