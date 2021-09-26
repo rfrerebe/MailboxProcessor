@@ -196,7 +196,6 @@ namespace MailboxProcessor
                         {
                             var savedTask1 = _agentTask ?? Task.CompletedTask;
                             var savedTask2 = _scanTask ?? Task.CompletedTask;
-                            var completion = _inputMailbox.Completion;
                             Task waitAllTask = Task.CompletedTask;
 
                             if (!force)
@@ -205,8 +204,8 @@ namespace MailboxProcessor
 
                                 if (IsScanAvailable)
                                 {
-                                    await completion.ContinueWith((antecedent) => _outputMailbox.Stop(false));
-                                    completion = _outputMailbox.Completion;
+                                    await _inputMailbox.Completion.ContinueWith((antecedent) => _outputMailbox.Stop(false));
+                                    await _outputMailbox.Completion;
                                 }
                             }
                             else
