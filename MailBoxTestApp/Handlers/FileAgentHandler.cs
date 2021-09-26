@@ -21,7 +21,7 @@ namespace MailBoxTestApp.Handlers
             this.workDir = Path.GetDirectoryName(filePath);
         }
 
-        void IMessageHandler<Message>.OnStart(IAgent<Message> agent)
+        void IMessageHandler<Message>.OnStart()
         {
             if (!Directory.Exists(workDir))
             {
@@ -40,7 +40,7 @@ namespace MailBoxTestApp.Handlers
             return this.OnMessage((dynamic)msg, token);
         }
 
-        void IMessageHandler<Message>.OnEnd()
+        void IMessageHandler<Message>.OnStop()
         {
             this.streamWriter.Dispose();
             this.fileStream.Dispose();

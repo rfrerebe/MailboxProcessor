@@ -14,7 +14,7 @@ namespace MailBoxTestApp.Handlers
     {
         private const int AGENTS_COUNT = 5;
 
-        void IMessageHandler<Message>.OnStart(IAgent<Message> agent)
+        void IMessageHandler<Message>.OnStart()
         {
 
         }
@@ -69,7 +69,7 @@ namespace MailBoxTestApp.Handlers
             }
         }
 
-        void IMessageHandler<Message>.OnEnd()
+        void IMessageHandler<Message>.OnStop()
         {
 
         }

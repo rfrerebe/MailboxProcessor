@@ -60,7 +60,7 @@ namespace MailboxProcessor
             _scanTask = Task.Factory.StartNew(async () => {
 
                 var token = this.CancellationToken;
-                scanHandler.OnStart(this);
+                scanHandler.OnStart();
                 TMsg[] scanResults = null;
 
                 try
@@ -84,7 +84,7 @@ namespace MailboxProcessor
                 }
                 finally
                 {
-                    scanHandler.OnEnd();
+                    scanHandler.OnStop();
                 }
 
             }, this.CancellationToken, _agentOptions.ScanTaskCreationOptions, _agentOptions.ScanTaskScheduler).Unwrap();
@@ -138,7 +138,7 @@ namespace MailboxProcessor
 
                     try
                     {
-                        _messageHandler.OnStart(this);
+                        _messageHandler.OnStart();
 
                         var token = this.CancellationToken;
                         while (IsRunning)
@@ -152,7 +152,7 @@ namespace MailboxProcessor
                     }
                     finally
                     {
-                        _messageHandler.OnEnd();
+                        _messageHandler.OnStop();
                     }
                 }
                 catch (Exception exception)

@@ -17,7 +17,7 @@ namespace MailBoxTestApp.Handlers
             _countAgent = countAgent;
         }
 
-        void IMessageScanHandler<Message>.OnStart(IAgent<Message> agent)
+        void IMessageScanHandler<Message>.OnStart()
         {
 
         }
@@ -39,7 +39,7 @@ namespace MailBoxTestApp.Handlers
             return new[] { msg };
         }
 
-        void IMessageScanHandler<Message>.OnEnd()
+        void IMessageScanHandler<Message>.OnStop()
         {
             
         }
