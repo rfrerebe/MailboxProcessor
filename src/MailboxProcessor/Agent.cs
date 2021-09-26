@@ -207,6 +207,11 @@ namespace MailboxProcessor
                                     await _inputMailbox.Completion.ContinueWith((antecedent) => _outputMailbox.Stop(false));
                                     await _outputMailbox.Completion;
                                 }
+                                else
+                                {
+                                    // not really needed but, for consistency
+                                    await _inputMailbox.Completion;
+                                }
                             }
                             else
                             {
